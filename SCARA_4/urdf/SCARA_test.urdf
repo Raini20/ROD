@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixed for ROS2 compatibility (per Vorlesung 1_Modelling):
+     - World-Frame mit Z-up Korrektur (CAD: -Y up -> World: +Z up)
+     - Robot name: scara
+     - Joint Limits, Effort, Velocity befüllt
+     - Dynamics (damping/friction) ergänzt
+     - joint_tcp: Nullvektor-Axis entfernt
+     - Material names befüllt
+     - Winzige Off-diagonal-Inertia auf 0 (Gazebo-Stabilität)
+-->
+<robot name="scara">
+
+  <!-- World Frame mit Z-up Korrektur für SolidWorks-Export -->
+  <link name="world" />
+  <joint name="world_to_base" type="fixed">
+    <parent link="world" />
+    <child link="base_link" />
+    <origin xyz="0 0 0" rpy="1.5708 0 0" />
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.0 -0.23073 0.0" rpy="0 0 0" />
+      <mass value="22.615" />
+      <inertia
+        ixx="0.87369"  ixy="0.0"  ixz="0.0"
+        iyy="0.38057"  iyz="0.0"
+        izz="0.87369" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/base_link.STL" />
+      </geometry>
+      <material name="red">
+        <color rgba="1 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_1">
+    <inertial>
+      <origin xyz="0.21762 -1.258E-06 0.11077" rpy="0 0 0" />
+      <mass value="15.849" />
+      <inertia
+        ixx="0.17256"  ixy="6.0369E-06"  ixz="-0.03006"
+        iyy="0.93235"  iyz="-1.0863E-06"
+        izz="0.9668" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_1.STL" />
+      </geometry>
+      <material name="green">
+        <color rgba="0 1 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- SCARA Joint 1: Basis-Rotation (Z-Achse) -->
+  <joint name="joint_1" type="revolute">
+    <origin xyz="0 -0.5 0" rpy="1.5708 -0.49864 0" />
+    <parent link="base_link" />
+    <child link="link_1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.618" upper="2.618" effort="150.0" velocity="1.571" />
+    <dynamics damping="1.0" friction="0.5" />
+  </joint>
+
+  <link name="link_2">
+    <inertial>
+      <origin xyz="0.30845 -2.4361E-06 0.089551" rpy="0 0 0" />
+      <mass value="9.7111" />
+      <inertia
+        ixx="0.041789"  ixy="1.3001E-06"  ixz="-0.038416"
+        iyy="0.55234"   iyz="-1.1193E-06"
+        izz="0.55988" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_2.STL" />
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- SCARA Joint 2: Ellenbogen-Rotation (Z-Achse) -->
+  <joint name="joint_2" type="revolute">
+    <origin xyz="0.6 0 0.15" rpy="0 0 0" />
+    <parent link="link_1" />
+    <child link="link_2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.618" upper="2.618" effort="100.0" velocity="1.571" />
+    <dynamics damping="0.8" friction="0.3" />
+  </joint>
+
+  <link name="link_3">
+    <inertial>
+      <origin xyz="0.002073 2.2917E-05 0.30161" rpy="0 0 0" />
+      <mass value="1.1625" />
+      <inertia
+        ixx="0.044926"  ixy="0.0"  ixz="4.0179E-06"
+        iyy="0.044857"  iyz="-7.6103E-06"
+        izz="0.00062347" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_3.STL" />
+      </geometry>
+      <material name="olive">
+        <color rgba="0.5 0.5 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- SCARA Joint 3: Prismatisch (Z-Hub) -->
+  <!-- ANPASSEN: upper-Limit = max. Hub in Metern (hier 200 mm) -->
+  <joint name="joint_3" type="prismatic">
+    <origin xyz="0.6 0 0.03" rpy="0 0 0" />
+    <parent link="link_2" />
+    <child link="link_3" />
+    <axis xyz="0 0 1" />
+    <limit lower="0.0" upper="0.20" effort="100.0" velocity="0.5" />
+    <dynamics damping="0.5" friction="0.2" />
+  </joint>
+
+  <link name="link_4">
+    <inertial>
+      <origin xyz="0.0 0.0 -0.023589" rpy="0 0 0" />
+      <mass value="0.26462" />
+      <inertia
+        ixx="0.00016691"  ixy="0.0"  ixz="0.0"
+        iyy="0.00016698"  iyz="0.0"
+        izz="0.00020916" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_4.STL" />
+      </geometry>
+      <material name="teal">
+        <color rgba="0 0.5 0.5 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- SCARA Joint 4: Wrist-Rotation (Spindel/Theta) -->
+  <joint name="joint_4" type="revolute">
+    <origin xyz="0 0 -0.05" rpy="3.1416 0 -3.0582" />
+    <parent link="link_3" />
+    <child link="link_4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.1416" upper="3.1416" effort="50.0" velocity="3.142" />
+    <dynamics damping="0.1" friction="0.05" />
+  </joint>
+
+  <link name="tool">
+    <inertial>
+      <origin xyz="0.0 0.0 0.040258" rpy="0 0 0" />
+      <mass value="0.20026" />
+      <inertia
+        ixx="0.0005259"   ixy="0.0"  ixz="0.0"
+        iyy="0.00052591"  iyz="0.0"
+        izz="0.00010377" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/tool.STL" />
+      </geometry>
+      <material name="purple">
+        <color rgba="0.5 0 0.5 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/SCARA/SCARA_4/meshes/tool.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- TCP: Fixed Joint, kein Axis-Element nötig -->
+  <joint name="joint_tcp" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="link_4" />
+    <child link="tool" />
+  </joint>
+
+</robot>
