@@ -32,7 +32,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/base_link.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/base_link.STL" />
       </geometry>
       <material name="red">
         <color rgba="1 0 0 1" />
@@ -41,7 +41,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/base_link.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -58,7 +58,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_1.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_1.STL" />
       </geometry>
       <material name="green">
         <color rgba="0 1 0 1" />
@@ -67,7 +67,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_1.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_1.STL" />
       </geometry>
     </collision>
   </link>
@@ -94,7 +94,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_2.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_2.STL" />
       </geometry>
       <material name="blue">
         <color rgba="0 0 1 1" />
@@ -103,7 +103,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_2.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_2.STL" />
       </geometry>
     </collision>
   </link>
@@ -130,7 +130,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_3.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_3.STL" />
       </geometry>
       <material name="olive">
         <color rgba="0.5 0.5 0 1" />
@@ -139,7 +139,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_3.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_3.STL" />
       </geometry>
     </collision>
   </link>
@@ -166,7 +166,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_4.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_4.STL" />
       </geometry>
       <material name="teal">
         <color rgba="0 0.5 0.5 1" />
@@ -175,7 +175,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_4.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_4.STL" />
       </geometry>
     </collision>
   </link>
@@ -202,7 +202,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_5.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_5.STL" />
       </geometry>
       <material name="purple">
         <color rgba="0.5 0 0.5 1" />
@@ -211,7 +211,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_5.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_5.STL" />
       </geometry>
     </collision>
   </link>
@@ -238,7 +238,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/tool.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/tool.STL" />
       </geometry>
       <material name="grey">
         <color rgba="0.5 0.5 0.5 1" />
@@ -247,7 +247,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/tool.STL" />
+        <mesh filename="package://robot_arm_6dof_assembly/meshes/tool.STL" />
       </geometry>
     </collision>
   </link>

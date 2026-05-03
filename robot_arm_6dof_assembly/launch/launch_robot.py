@@ -1,8 +1,15 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+import os
+from ament_index_python.packages import get_package_share_directory
 
 # Pfad zur fixed URDF (mit absoluten file:// Mesh-Pfaden)
-urdf_path = "/mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/urdf/robot_test.urdf"
+# urdf_path = "/mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/urdf/robot_test.urdf"
+urdf_path = os.path.join(
+    get_package_share_directory("robot_arm_6dof_assembly"),
+    "urdf",
+    "robot_test.urdf"
+)
 
 with open(urdf_path, "r") as f:
     robot_description = f.read()
