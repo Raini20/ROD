@@ -15,7 +15,7 @@
   <joint name="world_to_base" type="fixed">
     <parent link="world" />
     <child link="base_link" />
-    <origin xyz="0 0 0" rpy="1.5708 0 0" />
+    <origin xyz="0 0 0" rpy="-1.5708 0 0" />
   </joint>
 
   <link name="base_link">
@@ -30,7 +30,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/base_link.STL" />
+        <mesh filename="package://scara_4/meshes/base_link.STL" />
       </geometry>
       <material name="red">
         <color rgba="1 0 0 1" />
@@ -39,7 +39,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/base_link.STL" />
+        <mesh filename="package://scara_4/meshes/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -56,7 +56,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_1.STL" />
+        <mesh filename="package://scara_4/meshes/link_1.STL" />
       </geometry>
       <material name="green">
         <color rgba="0 1 0 1" />
@@ -65,7 +65,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_1.STL" />
+        <mesh filename="package://scara_4/meshes/link_1.STL" />
       </geometry>
     </collision>
   </link>
@@ -92,7 +92,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_2.STL" />
+        <mesh filename="package://scara_4/meshes/link_2.STL" />
       </geometry>
       <material name="blue">
         <color rgba="0 0 1 1" />
@@ -101,7 +101,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_2.STL" />
+        <mesh filename="package://scara_4/meshes/link_2.STL" />
       </geometry>
     </collision>
   </link>
@@ -128,7 +128,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_3.STL" />
+        <mesh filename="package://scara_4/meshes/link_3.STL" />
       </geometry>
       <material name="olive">
         <color rgba="0.5 0.5 0 1" />
@@ -137,7 +137,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_3.STL" />
+        <mesh filename="package://scara_4/meshes/link_3.STL" />
       </geometry>
     </collision>
   </link>
@@ -149,7 +149,7 @@
     <parent link="link_2" />
     <child link="link_3" />
     <axis xyz="0 0 1" />
-    <limit lower="0.0" upper="0.20" effort="100.0" velocity="0.5" />
+    <limit lower="-0.40" upper="0.0" effort="100.0" velocity="0.5" />
     <dynamics damping="0.5" friction="0.2" />
   </joint>
 
@@ -165,7 +165,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_4.STL" />
+        <mesh filename="package://scara_4/meshes/link_4.STL" />
       </geometry>
       <material name="teal">
         <color rgba="0 0.5 0.5 1" />
@@ -174,7 +174,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/link_4.STL" />
+        <mesh filename="package://scara_4/meshes/link_4.STL" />
       </geometry>
     </collision>
   </link>
@@ -201,7 +201,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/tool.STL" />
+        <mesh filename="package://scara_4/meshes/tool.STL" />
       </geometry>
       <material name="purple">
         <color rgba="0.5 0 0.5 1" />
@@ -210,7 +210,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://SCARA_4/meshes/tool.STL" />
+        <mesh filename="package://scara_4/meshes/tool.STL" />
       </geometry>
     </collision>
   </link>
