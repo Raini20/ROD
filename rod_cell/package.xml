@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rod_cell</name>
+  <version>0.0.1</version>
+  <description>Combined robot cell launch</description>
+  <maintainer email="raini@todo.todo">Rainhard Wipp</maintainer>
+  <license>TODO</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>robot_arm_6dof_assembly</exec_depend>
+  <exec_depend>SCARA_4</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
