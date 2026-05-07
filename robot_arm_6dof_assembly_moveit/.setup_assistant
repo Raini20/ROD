@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: robot_arm_6dof_assembly
+    relative_path: urdf/robot_arm_6dof_assembly.urdf
+  srdf:
+    relative_path: config/knickarm_6dof.srdf
+  package_settings:
+    author_name: Rainhard Wipp
+    author_email: ""
+    generated_timestamp: 1777815993
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
