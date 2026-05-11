@@ -42,6 +42,7 @@ def generate_launch_description():
     column_mesh = os.path.join(scene_pkg, 'meshes', 'column_robot_arm_6dof.glb')
     fixier_mesh = os.path.join(scene_pkg, 'meshes', 'FixiereinheitAssembly.glb')
     toaster_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterAssembly.glb')
+    conveyor_mesh = os.path.join(scene_pkg, 'meshes', 'Conveyor.glb')
 
     return LaunchDescription([
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', gz_resource_path),
@@ -52,6 +53,7 @@ def generate_launch_description():
                 os.path.join(gz_package, 'launch', 'gz_sim.launch.py')
             ),
             launch_arguments={'gz_args': '-r empty.sdf'}.items()
+            # launch_arguments={'gz_args': '-r empty.sdf --render-engine ogre2'}.items()
         ),
 
         Node(
@@ -79,24 +81,24 @@ def generate_launch_description():
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'arm', '-topic', '/arm/robot_description',
-                       '-x', '0.0', '-y', '-1.2', '-z', '1.0'],
+                       '-x', '-0.75', '-y', '0.0', '-z', '1.0'],
         ),
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'scara', '-topic', '/scara/robot_description',
-                       '-x', '0.0', '-y', '0.8', '-z', '1.0'],
+                       '-x', '1.0', '-y', '0', '-z', '1.0'],
         ),
 
         # Säulen
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'column_arm', '-string',
-                       make_static_sdf('column_arm', column_mesh, 0, -1.2, 0, 1.5708, 0, 0)],
+                       make_static_sdf('column_arm', column_mesh, -0.75, 0, 0, 1.5708, 0, 0)],
         ),
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'column_scara', '-string',
-                       make_static_sdf('column_scara', column_mesh, 0, 0.8, 0, 1.5708, 0, 0)],
+                       make_static_sdf('column_scara', column_mesh, 1, 0, 0, 1.5708, 0, 0)],
         ),
 
         # Fixiereinheit
@@ -111,5 +113,24 @@ def generate_launch_description():
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'toaster', '-string',
                        make_static_sdf('toaster', toaster_mesh, -1.5, 0, 0)],
+        ),
+
+        # FB1 - Eingang Gehäuse (von links)
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'fb1', '-string',
+                       make_static_sdf('fb1', conveyor_mesh, -0.75, 0.75, 0, 1.5708, 0, 0)],
+        ),
+        # FB2 - Eingang Deckel (von links, versetzt)
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'fb2', '-string',
+                       make_static_sdf('fb2', conveyor_mesh, 0, 0.75, 0, 1.5708, 0, 0)],
+        ),
+        # FB3 - Ausgang (nach rechts)
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'fb3', '-string',
+                       make_static_sdf('fb3', conveyor_mesh, 0, -0.75, 0, 1.5708, 0, 3.14159)],
         ),
     ])
