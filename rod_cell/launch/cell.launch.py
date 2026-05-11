@@ -14,6 +14,17 @@ def generate_launch_description():
     with open(os.path.join(arm_pkg, 'urdf', 'robot_arm_6dof_assembly.urdf'), 'r') as f:
         arm_description = f.read().replace('$(find robot_arm_6dof_assembly)', arm_pkg)
 
+
+###############################################################################
+#Schwerkraft in Gazebo deaktivieren, damit der Arm fürs Foto nicht runterfällt#
+###############################################################################
+    arm_description = arm_description.replace(
+        '</robot>',
+        '<gazebo><static>true</static></gazebo></robot>'
+    )
+###############################################################################
+
+
     with open(os.path.join(scara_pkg, 'urdf', 'SCARA_4.urdf'), 'r') as f:
         scara_description = f.read().replace('$(find scara_4)', scara_pkg)
 
@@ -43,6 +54,9 @@ def generate_launch_description():
     fixier_mesh = os.path.join(scene_pkg, 'meshes', 'FixiereinheitAssembly.glb')
     toaster_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterAssembly.glb')
     conveyor_mesh = os.path.join(scene_pkg, 'meshes', 'Conveyor.glb')
+    toaster_innen_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterInnen.glb')
+    toaster_shell_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterShell.glb')
+
 
     return LaunchDescription([
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', gz_resource_path),
@@ -53,7 +67,6 @@ def generate_launch_description():
                 os.path.join(gz_package, 'launch', 'gz_sim.launch.py')
             ),
             launch_arguments={'gz_args': '-r empty.sdf'}.items()
-            # launch_arguments={'gz_args': '-r empty.sdf --render-engine ogre2'}.items()
         ),
 
         Node(
@@ -109,28 +122,57 @@ def generate_launch_description():
         ),
 
         # Toaster (auf dem Boden vorerst)
+        #Node(
+        #    package='ros_gz_sim', executable='create',
+        #    arguments=['-name', 'toaster', '-string',
+        #               make_static_sdf('toaster', toaster_mesh, -1.5, 0, 0)],
+        #),
+
+        # ToasterShell auf FB1 (Gehäuse-Förderband)
         Node(
             package='ros_gz_sim', executable='create',
-            arguments=['-name', 'toaster', '-string',
-                       make_static_sdf('toaster', toaster_mesh, -1.5, 0, 0)],
+            arguments=['-name', 'toaster_shell', '-string',
+                       make_static_sdf('toaster_shell', toaster_shell_mesh,
+                                       -0.75, 0.45, 1.0)],
+        ),
+        # ToasterInnen auf FB2 (Deckel-Förderband), verkehrt rum + 168mm hoch
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'toaster_innen', '-string',
+                       make_static_sdf('toaster_innen', toaster_innen_mesh,
+                                       0.0, 0.45, 1.168, 3.14159, 0, 0)],
+        ),
+
+        # Fertige Assembly auf FB3 - beide Teile am gleichen Ursprung
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'output_shell', '-string',
+                       make_static_sdf('output_shell', toaster_shell_mesh,
+                                       0.0, -0.45, 1.0)],
+        ),
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'output_innen', '-string',
+                       make_static_sdf('output_innen', toaster_innen_mesh,
+                                       0.0, -0.45, 1.0)],
         ),
 
         # FB1 - Eingang Gehäuse (von links)
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'fb1', '-string',
-                       make_static_sdf('fb1', conveyor_mesh, -0.75, 0.75, 0, 1.5708, 0, 0)],
+                       make_static_sdf('fb1', conveyor_mesh, -0.75, 0.3, 0, 1.5708, 0, 0)],
         ),
         # FB2 - Eingang Deckel (von links, versetzt)
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'fb2', '-string',
-                       make_static_sdf('fb2', conveyor_mesh, 0, 0.75, 0, 1.5708, 0, 0)],
+                       make_static_sdf('fb2', conveyor_mesh, 0, 0.3, 0, 1.5708, 0, 0)],
         ),
         # FB3 - Ausgang (nach rechts)
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'fb3', '-string',
-                       make_static_sdf('fb3', conveyor_mesh, 0, -0.75, 0, 1.5708, 0, 3.14159)],
+                       make_static_sdf('fb3', conveyor_mesh, 0, -0.3, 0, 1.5708, 0, 3.14159)],
         ),
     ])
