@@ -8,6 +8,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     arm_pkg = get_package_share_directory('robot_arm_6dof_assembly')
     scara_pkg = get_package_share_directory('scara_4')
+    scene_pkg = get_package_share_directory('rod_scene')
     gz_package = get_package_share_directory('ros_gz_sim')
 
     with open(os.path.join(arm_pkg, 'urdf', 'robot_arm_6dof_assembly.urdf'), 'r') as f:
@@ -16,10 +17,31 @@ def generate_launch_description():
     with open(os.path.join(scara_pkg, 'urdf', 'SCARA_4.urdf'), 'r') as f:
         scara_description = f.read().replace('$(find scara_4)', scara_pkg)
 
-    gz_resource_path = (
-        os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'robot_arm_6dof_assembly', 'share') + ':' +
-        os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'scara_4', 'share')
-    )
+    gz_resource_path = ':'.join([
+        os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'robot_arm_6dof_assembly', 'share'),
+        os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'scara_4', 'share'),
+        os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'rod_scene', 'share'),
+    ])
+
+    def make_static_sdf(name, mesh_path, x, y, z, roll=0, pitch=0, yaw=0):
+        return f"""<?xml version="1.0"?>
+<sdf version="1.8">
+  <model name="{name}">
+    <static>true</static>
+    <link name="link">
+      <pose>{x} {y} {z} {roll} {pitch} {yaw}</pose>
+      <visual name="visual">
+        <geometry>
+          <mesh><uri>{mesh_path}</uri></mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>"""
+
+    column_mesh = os.path.join(scene_pkg, 'meshes', 'column_robot_arm_6dof.glb')
+    fixier_mesh = os.path.join(scene_pkg, 'meshes', 'FixiereinheitAssembly.glb')
+    toaster_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterAssembly.glb')
 
     return LaunchDescription([
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', gz_resource_path),
@@ -33,13 +55,20 @@ def generate_launch_description():
         ),
 
         Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+            parameters=[{'use_sim_time': True}],
+        ),
+
+        # Roboter
+        Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
             name='arm_state_publisher',
             namespace='arm',
             parameters=[{'robot_description': arm_description}],
         ),
-
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
@@ -47,18 +76,40 @@ def generate_launch_description():
             namespace='scara',
             parameters=[{'robot_description': scara_description}],
         ),
-
         Node(
-            package='ros_gz_sim',
-            executable='create',
+            package='ros_gz_sim', executable='create',
             arguments=['-name', 'arm', '-topic', '/arm/robot_description',
-                       '-x', '0.0', '-y', '0.0', '-z', '0.0'],
+                       '-x', '0.0', '-y', '-1.2', '-z', '1.0'],
+        ),
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'scara', '-topic', '/scara/robot_description',
+                       '-x', '0.0', '-y', '0.8', '-z', '1.0'],
         ),
 
+        # Säulen
         Node(
-            package='ros_gz_sim',
-            executable='create',
-            arguments=['-name', 'scara', '-topic', '/scara/robot_description',
-                       '-x', '1.5', '-y', '0.0', '-z', '0.0'],
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'column_arm', '-string',
+                       make_static_sdf('column_arm', column_mesh, 0, -1.2, 0, 1.5708, 0, 0)],
+        ),
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'column_scara', '-string',
+                       make_static_sdf('column_scara', column_mesh, 0, 0.8, 0, 1.5708, 0, 0)],
+        ),
+
+        # Fixiereinheit
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'fixiereinheit', '-string',
+                       make_static_sdf('fixiereinheit', fixier_mesh, 0, 0, 0)],
+        ),
+
+        # Toaster (auf dem Boden vorerst)
+        Node(
+            package='ros_gz_sim', executable='create',
+            arguments=['-name', 'toaster', '-string',
+                       make_static_sdf('toaster', toaster_mesh, -1.5, 0, 0)],
         ),
     ])
