@@ -1,68 +1,91 @@
-# ROD Workspace Setup
-
-## 1. ROS2 Jazzy installieren
-Falls noch nicht installiert:
-https://docs.ros.org/en/jazzy/Installation.html
-
+# ROD – Robot Cell Simulation
+ 
+ROS2 Jazzy | Gazebo Harmonic | MoveIt2  
+FH Technikum Wien – Kompetenzfeld Digital Manufacturing, Automation & Robotics
+ 
+## Übersicht
+ 
+Simulation einer industriellen Roboterzelle mit zwei Robotern:
+- **6-DOF Knickarm** (kinematisch angelehnt an UR15) mit Saugnapf-Endeffektor
+- **SCARA** (4-DOF) mit Schraubwerkzeug
+**Usecase:** Toaster-Montage  
+1. Knickarm greift Gehäuse von FB1 → legt in Fixiereinheit
+2. SCARA verschraubt Gehäuse
+3. Knickarm greift Deckel von FB2 → legt auf Gehäuse
+4. SCARA verschraubt Deckel (4 Schrauben)
+5. Knickarm transferiert fertige Assembly auf FB3
 ---
-
-## 2. MoveIt installieren
+ 
+## Packages
+ 
+| Package | Beschreibung |
+|---|---|
+| `robot_arm_6dof_assembly` | URDF + Meshes + Launch für den Knickarm |
+| `arm_moveit` | MoveIt2 Konfiguration für den Knickarm |
+| `scara_4` | URDF + Meshes + Launch für den SCARA |
+| `scara_moveit` | MoveIt2 Konfiguration für den SCARA |
+| `rod_scene` | Szenenobjekte (Säulen, Fixiereinheit, Förderbänder, Werkstücke) |
+| `rod_cell` | Kombiniertes Launch File für die gesamte Zelle |
+ 
+---
+ 
+## Setup
+ 
+### Voraussetzungen
+ 
 ```bash
-sudo apt install ros-jazzy-moveit
+sudo apt install ros-jazzy-moveit ros-jazzy-ros-gz ros-jazzy-gz-ros2-control \
+  ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-joint-state-publisher*
 ```
-
----
-
-## 3. Workspace anlegen
+ 
+### Repository klonen
+ 
 ```bash
 mkdir -p ~/rod_ws/src
-cd ~/rod_ws
-source /opt/ros/jazzy/setup.bash
-colcon build
-source install/setup.bash
-```
-
----
-
-## 4. Repo klonen
-```bash
 cd ~/rod_ws/src
 git clone https://github.com/Raini20/ROD.git .
 ```
-
----
-
-## 5. Bauen
+ 
+### Workspace bauen
+ 
 ```bash
 cd ~/rod_ws
 colcon build
 source install/setup.bash
 ```
-
+ 
 ---
-
-## 6. Testen — 6DOF Arm in RViz
+ 
+## Starten
+ 
+### Gesamte Zelle (visuell, beide Roboter statisch)
+ 
 ```bash
-source ~/rod_ws/install/setup.bash
-ros2 launch robot_arm_6dof_assembly launch_robot.py
+ros2 launch rod_cell cell.launch.py
 ```
-
-## 7. Testen — SCARA in RViz
+ 
+### Knickarm mit MoveIt + Gazebo (voll steuerbar)
+ 
+**Terminal 1 – Gazebo + Controller:**
 ```bash
-source ~/rod_ws/install/setup.bash
-ros2 launch scara_4 launch_scara.py
+ros2 launch robot_arm_6dof_assembly gz.launch.py
 ```
-
+ 
+**Terminal 2 – MoveGroup:**
+```bash
+ros2 launch arm_moveit move_group.launch.py
+```
+ 
+**Terminal 3 – RViz:**
+```bash
+ros2 launch arm_moveit moveit_rviz.launch.py
+```
+ 
+### Nur RViz (ohne Gazebo)
+ 
+```bash
+ros2 launch arm_moveit demo.launch.py
+ros2 launch scara_moveit demo.launch.py
+```
+ 
 ---
-
-## Workspace sourcen (jeden Terminal neu)
-```bash
-source /opt/ros/jazzy/setup.bash
-source ~/rod_ws/install/setup.bash
-```
-
-Tipp: In `~/.bashrc` eintragen damit es automatisch passiert:
-```bash
-echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
-echo "source ~/rod_ws/install/setup.bash" >> ~/.bashrc
-```
