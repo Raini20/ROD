@@ -14,6 +14,10 @@ def generate_launch_description():
     with open(os.path.join(arm_pkg, 'urdf', 'robot_arm_6dof_assembly.urdf'), 'r') as f:
         arm_description = f.read().replace('$(find robot_arm_6dof_assembly)', arm_pkg)
 
+    import re
+    arm_description = re.sub(r'<ros2_control.*?</ros2_control>', '', arm_description, flags=re.DOTALL)
+    arm_description = re.sub(r'<gazebo>\s*<plugin filename="libgz_ros2_control.*?</gazebo>', '', arm_description, flags=re.DOTALL)
+
 
 ###############################################################################
 #Schwerkraft in Gazebo deaktivieren, damit der Arm fürs Foto nicht runterfällt#
