@@ -1,7 +1,25 @@
 from moveit_configs_utils import MoveItConfigsBuilder
-from moveit_configs_utils.launches import generate_moveit_rviz_launch
-
+from launch import LaunchDescription
+from launch_ros.actions import Node
 
 def generate_launch_description():
-    moveit_config = MoveItConfigsBuilder("knickarm_6dof", package_name="arm_moveit").to_moveit_configs()
-    return generate_moveit_rviz_launch(moveit_config)
+    moveit_config = (
+        MoveItConfigsBuilder("knickarm_6dof", package_name="arm_moveit")
+        .to_moveit_configs()
+    )
+
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        output="log",
+        parameters=[
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
+            moveit_config.robot_description_kinematics,
+            moveit_config.planning_pipelines,
+            moveit_config.joint_limits,
+            {"use_sim_time": True},
+        ],
+    )
+
+    return LaunchDescription([rviz_node])
