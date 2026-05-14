@@ -83,14 +83,29 @@ ros2 launch arm_moveit move_group.launch.py
 ros2 launch arm_moveit moveit_rviz.launch.py
 ```
 
-### C Nur RViz (ohne Gazebo)
+### C SCARA mit MoveIt + Gazebo (voll steuerbar)
+
+**Terminal 1 – Gazebo + Controller:**
+```bash
+ros2 launch scara_4 gz.launch.py
+```
+
+**Terminal 2 – MoveGroup:**
+```bash
+ros2 launch scara_moveit move_group.launch.py
+```
+
+**Terminal 3 – RViz:**
+```bash
+ros2 launch scara_moveit moveit_rviz.launch.py
+```
+
+### D Nur RViz (ohne Gazebo)
 
 ```bash
 ros2 launch arm_moveit demo.launch.py
 ros2 launch scara_moveit demo.launch.py
 ```
-
----
 
 ---
 
@@ -101,12 +116,12 @@ ros2 launch scara_moveit demo.launch.py
 - SCARA URDF mit Endeffektor (Merle)
 - MoveIt2 Konfiguration für beide Roboter
 - Gazebo Harmonic Integration — Knickarm planbar und ausführbar
+- Gazebo Harmonic Integration — SCARA planbar und ausführbar
 - Zellenszene: Säulen, Fixiereinheit, Förderbänder, Werkstücke (GLB)
 - Visualisierungs-Launch (`cell.launch.py`)
 - ROS2-Package Struktur
 
 ### ❌ Must-Have TODOs (Pflicht laut Angabe)
-- [ ] **SCARA in Gazebo steuerbar** — MoveIt + Gazebo für SCARA analog zum Arm aufsetzen
 - [ ] **HMI** — mindestens Konsolenapplikation die einen Roboter am TCP linear bewegen kann (IK nötig)
 - [ ] **Startskript** — ein einziger Befehl (bash oder ros2 launch) startet die gesamte Simulation
 - [ ] **Dokumentation als PDF** — Anwendungsfall beschreiben, alle Pakete/Abhängigkeiten dokumentieren, Startanleitung
@@ -116,3 +131,21 @@ ros2 launch scara_moveit demo.launch.py
 - [ ] Schutzzaun in der Szene
 - [ ] Backup-Video der Simulation für Präsentation
 - [ ] Beide Roboter führen den Ablauf automatisch aus (Programmierung des Workflows)
+
+---
+
+## Branches
+
+```
+main
+├── Merle          — SCARA URDF + MoveIt Konfiguration (Merle)
+└── Raini          — Knickarm + MoveIt + Gazebo + Zellenszene (aktueller Stand)
+    └── Scara_Gazebo — SCARA Gazebo Integration (in Arbeit)
+```
+
+| Branch | Inhalt |
+|---|---|
+| `main` | Basis beider Roboter |
+| `Merle` | SCARA URDF + MoveIt Konfiguration |
+| `Raini` | Knickarm + SCARA MoveIt, Gazebo Integration, Zellenszene |
+| `Scara_Gazebo` | SCARA Gazebo Integration (gz.launch.py, ros2_control, move_group Fix) |
