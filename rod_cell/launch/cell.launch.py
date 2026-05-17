@@ -1,7 +1,8 @@
 import os
+import re
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
@@ -11,26 +12,26 @@ def generate_launch_description():
     scene_pkg = get_package_share_directory('rod_scene')
     gz_package = get_package_share_directory('ros_gz_sim')
 
+    arm_controller_joints_config = os.path.join(arm_pkg, 'config', 'arm_controller_joints.yaml')
+    scara_controller_joints_config = os.path.join(scara_pkg, 'config', 'scara_controller_joints.yaml')
+
     with open(os.path.join(arm_pkg, 'urdf', 'robot_arm_6dof_assembly.urdf'), 'r') as f:
         arm_description = f.read().replace('$(find robot_arm_6dof_assembly)', arm_pkg)
 
-    import re
-    arm_description = re.sub(r'<ros2_control.*?</ros2_control>', '', arm_description, flags=re.DOTALL)
-    arm_description = re.sub(r'<gazebo>\s*<plugin filename="libgz_ros2_control.*?</gazebo>', '', arm_description, flags=re.DOTALL)
-
-
-###############################################################################
-#Schwerkraft in Gazebo deaktivieren, damit der Arm fürs Foto nicht runterfällt#
-###############################################################################
-    arm_description = arm_description.replace(
-        '</robot>',
-        '<gazebo><static>true</static></gazebo></robot>'
-    )
-###############################################################################
-
-
     with open(os.path.join(scara_pkg, 'urdf', 'SCARA_4.urdf'), 'r') as f:
         scara_description = f.read().replace('$(find scara_4)', scara_pkg)
+
+    # Namespace in gz_ros2_control Plugin injizieren
+    arm_description = re.sub(
+        r'(name="gz_ros2_control::GazeboSimROS2ControlPlugin">)',
+        r'\1\n      <ros><namespace>/arm</namespace></ros>',
+        arm_description
+    )
+    scara_description = re.sub(
+        r'(name="gz_ros2_control::GazeboSimROS2ControlPlugin">)',
+        r'\1\n      <ros><namespace>/scara</namespace></ros>',
+        scara_description
+    )
 
     gz_resource_path = ':'.join([
         os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'robot_arm_6dof_assembly', 'share'),
@@ -56,11 +57,9 @@ def generate_launch_description():
 
     column_mesh = os.path.join(scene_pkg, 'meshes', 'column_robot_arm_6dof.glb')
     fixier_mesh = os.path.join(scene_pkg, 'meshes', 'FixiereinheitAssembly.glb')
-    toaster_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterAssembly.glb')
     conveyor_mesh = os.path.join(scene_pkg, 'meshes', 'Conveyor.glb')
-    toaster_innen_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterInnen.glb')
     toaster_shell_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterShell.glb')
-
+    toaster_innen_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterInnen.glb')
 
     return LaunchDescription([
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', gz_resource_path),
@@ -80,103 +79,89 @@ def generate_launch_description():
             parameters=[{'use_sim_time': True}],
         ),
 
-        # Roboter
+        # Arm
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
             name='arm_state_publisher',
             namespace='arm',
-            parameters=[{'robot_description': arm_description}],
-        ),
-        Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            name='scara_state_publisher',
-            namespace='scara',
-            parameters=[{'robot_description': scara_description}],
+            parameters=[{'robot_description': arm_description, 'use_sim_time': True}],
         ),
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'arm', '-topic', '/arm/robot_description',
                        '-x', '-0.75', '-y', '0.0', '-z', '1.0'],
         ),
+
+        # SCARA
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            name='scara_state_publisher',
+            namespace='scara',
+            parameters=[{'robot_description': scara_description, 'use_sim_time': True}],
+        ),
         Node(
             package='ros_gz_sim', executable='create',
             arguments=['-name', 'scara', '-topic', '/scara/robot_description',
-                       '-x', '1.0', '-y', '0', '-z', '1.0'],
+                       '-x', '1.0', '-y', '0.0', '-z', '1.0'],
         ),
 
-        # Säulen
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'column_arm', '-string',
-                       make_static_sdf('column_arm', column_mesh, -0.75, 0, 0, 1.5708, 0, 0)],
-        ),
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'column_scara', '-string',
-                       make_static_sdf('column_scara', column_mesh, 1, 0, 0, 1.5708, 0, 0)],
-        ),
+        # Controller (mit Delay damit Gazebo fertig ist)
+        TimerAction(period=8.0, actions=[
+            Node(
+                package='controller_manager', executable='spawner',
+                namespace='arm',
+                arguments=['joint_state_broadcaster'],
+            ),
+            Node(
+                package='controller_manager', executable='spawner',
+                namespace='arm',
+                arguments=['arm_controller',
+                           '--param-file', arm_controller_joints_config],
+            ),
+            Node(
+                package='controller_manager', executable='spawner',
+                namespace='scara',
+                arguments=['joint_state_broadcaster'],
+            ),
+            Node(
+                package='controller_manager', executable='spawner',
+                namespace='scara',
+                arguments=['scara_controller',
+                           '--param-file', scara_controller_joints_config],
+            ),
+        ]),
 
-        # Fixiereinheit
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'fixiereinheit', '-string',
-                       make_static_sdf('fixiereinheit', fixier_mesh, 0, 0, 0)],
-        ),
-
-        # Toaster (auf dem Boden vorerst)
-        #Node(
-        #    package='ros_gz_sim', executable='create',
-        #    arguments=['-name', 'toaster', '-string',
-        #               make_static_sdf('toaster', toaster_mesh, -1.5, 0, 0)],
-        #),
-
-        # ToasterShell auf FB1 (Gehäuse-Förderband)
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'toaster_shell', '-string',
-                       make_static_sdf('toaster_shell', toaster_shell_mesh,
-                                       -0.75, 0.45, 1.0)],
-        ),
-        # ToasterInnen auf FB2 (Deckel-Förderband), verkehrt rum + 168mm hoch
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'toaster_innen', '-string',
-                       make_static_sdf('toaster_innen', toaster_innen_mesh,
-                                       0.0, 0.45, 1.168, 3.14159, 0, 0)],
-        ),
-
-        # Fertige Assembly auf FB3 - beide Teile am gleichen Ursprung
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'output_shell', '-string',
-                       make_static_sdf('output_shell', toaster_shell_mesh,
-                                       0.0, -0.45, 1.0)],
-        ),
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'output_innen', '-string',
-                       make_static_sdf('output_innen', toaster_innen_mesh,
-                                       0.0, -0.45, 1.0)],
-        ),
-
-        # FB1 - Eingang Gehäuse (von links)
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'fb1', '-string',
-                       make_static_sdf('fb1', conveyor_mesh, -0.75, 0.3, 0, 1.5708, 0, 0)],
-        ),
-        # FB2 - Eingang Deckel (von links, versetzt)
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'fb2', '-string',
-                       make_static_sdf('fb2', conveyor_mesh, 0, 0.3, 0, 1.5708, 0, 0)],
-        ),
-        # FB3 - Ausgang (nach rechts)
-        Node(
-            package='ros_gz_sim', executable='create',
-            arguments=['-name', 'fb3', '-string',
-                       make_static_sdf('fb3', conveyor_mesh, 0, -0.3, 0, 1.5708, 0, 3.14159)],
-        ),
+        # Szenenobjekte
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'column_arm', '-string',
+                        make_static_sdf('column_arm', column_mesh, -0.75, 0, 0, 1.5708, 0, 0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'column_scara', '-string',
+                        make_static_sdf('column_scara', column_mesh, 1, 0, 0, 1.5708, 0, 0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'fixiereinheit', '-string',
+                        make_static_sdf('fixiereinheit', fixier_mesh, 0, 0, 0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'fb1', '-string',
+                        make_static_sdf('fb1', conveyor_mesh, -0.75, 0.3, 0, 1.5708, 0, 0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'fb2', '-string',
+                        make_static_sdf('fb2', conveyor_mesh, 0, 0.3, 0, 1.5708, 0, 0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'fb3', '-string',
+                        make_static_sdf('fb3', conveyor_mesh, 0, -0.3, 0, 1.5708, 0, 3.14159)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'toaster_shell', '-string',
+                        make_static_sdf('toaster_shell', toaster_shell_mesh, -0.75, 0.45, 1.0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'toaster_innen', '-string',
+                        make_static_sdf('toaster_innen', toaster_innen_mesh, 0.0, 0.45, 1.168, 3.14159, 0, 0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'output_shell', '-string',
+                        make_static_sdf('output_shell', toaster_shell_mesh, 0.0, -0.45, 1.0)]),
+        Node(package='ros_gz_sim', executable='create',
+             arguments=['-name', 'output_innen', '-string',
+                        make_static_sdf('output_innen', toaster_innen_mesh, 0.0, -0.45, 1.0)]),
     ])

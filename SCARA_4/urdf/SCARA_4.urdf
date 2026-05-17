@@ -226,7 +226,7 @@
 
   <gazebo>
     <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-      <parameters>$(find scara_4)/config/scara_controller.yaml</parameters>
+      <parameters>$(find scara_4)/config/scara_controller_manager.yaml</parameters>
     </plugin>
   </gazebo>
 
