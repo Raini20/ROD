@@ -31,6 +31,9 @@ def generate_launch_description():
 
     with open(os.path.join(scara_pkg, 'urdf', 'SCARA_4.urdf'), 'r') as f:
         scara_description = f.read().replace('$(find scara_4)', scara_pkg)
+    scara_description = re.sub(r'<ros2_control.*?</ros2_control>', '', scara_description, flags=re.DOTALL)
+    scara_description = re.sub(r'<gazebo>\s*<plugin filename="libgz_ros2_control.*?</gazebo>', '', scara_description, flags=re.DOTALL)
+    scara_description = scara_description.replace('</robot>', '<gazebo><static>true</static></gazebo></robot>')
 
     gz_resource_path = ':'.join([
         os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'robot_arm_6dof_assembly', 'share'),
