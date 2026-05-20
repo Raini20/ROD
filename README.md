@@ -20,14 +20,16 @@ Simulation einer industriellen Roboterzelle mit zwei Robotern:
 
 ## Packages
 
-| Package | Beschreibung |
-|---|---|
-| `robot_arm_6dof_assembly` | URDF + Meshes + Launch für den Knickarm |
-| `arm_moveit` | MoveIt2 Konfiguration für den Knickarm |
-| `scara_4` | URDF + Meshes + Launch für den SCARA |
-| `scara_moveit` | MoveIt2 Konfiguration für den SCARA |
-| `rod_scene` | Szenenobjekte (Säulen, Fixiereinheit, Förderbänder, Werkstücke) |
-| `rod_cell` | Kombiniertes Launch File für die gesamte Zelle |
+| Package | Beschreibung | Status |
+|---|---|---|
+| `robot_arm_6dof_assembly` | URDF, Meshes, ros2_control Config und gz.launch.py für den Knickarm | aktiv |
+| `arm_moveit` | MoveIt2 Konfiguration (SRDF, Kinematics, Controller, RViz) für den Knickarm | aktiv |
+| `scara_4` | URDF, Meshes, ros2_control Config und gz.launch.py für den SCARA | aktiv |
+| `scara_moveit` | MoveIt2 Konfiguration für den SCARA | aktiv |
+| `rod_scene` | Szenenobjekte als GLB-Meshes (Säulen, Fixiereinheit, Förderbänder, Werkstücke) | aktiv |
+| `rod_cell` | Kombinierte Launch Files für die gesamte Zelle | aktiv |
+| `SolidWorks` | Originale SolidWorks-Exports (COLCON_IGNORE, nur Referenz) | Archiv |
+| `EasyBot` | Referenzprojekt vom Lektor (COLCON_IGNORE) | Referenz |
 
 ---
 
@@ -51,59 +53,65 @@ git clone https://github.com/Raini20/ROD.git .
 ### Workspace bauen
 
 ```bash
-cd ~/rod_ws
-colcon build
-source install/setup.bash
+cd ~/rod_ws && colcon build && source install/setup.bash
 ```
 
 ---
 
 ## Starten
 
-### A Gesamte Zelle (visuell, beide Roboter statisch)
+### A – Gesamte Zelle (visuell, beide Roboter statisch)
+
+Für Screenshots und Präsentationen — Roboter sind statisch (keine Physik).
 
 ```bash
+cd ~/rod_ws && source install/setup.bash
+ros2 launch rod_cell cell_visual.launch.py
+```
+
+### B – Beide Roboter mit MoveIt + Gazebo (voll steuerbar)
+
+Für die Live Demo — beide Roboter planbar und ausführbar in einer Simulation.
+
+**Terminal 1 – Gazebo + beide Controller:**
+```bash
+cd ~/rod_ws && source install/setup.bash
 ros2 launch rod_cell cell.launch.py
 ```
 
-### B Knickarm mit MoveIt + Gazebo (voll steuerbar)
-
-**Terminal 1 – Gazebo + Controller:**
+**Terminal 2 – MoveGroup Knickarm:**
 ```bash
-ros2 launch robot_arm_6dof_assembly gz.launch.py
-```
-
-**Terminal 2 – MoveGroup:**
-```bash
+cd ~/rod_ws && source install/setup.bash
 ros2 launch arm_moveit move_group.launch.py
 ```
 
-**Terminal 3 – RViz:**
+**Terminal 3 – MoveGroup SCARA:**
 ```bash
-ros2 launch arm_moveit moveit_rviz.launch.py
-```
-
-### C SCARA mit MoveIt + Gazebo (voll steuerbar)
-
-**Terminal 1 – Gazebo + Controller:**
-```bash
-ros2 launch scara_4 gz.launch.py
-```
-
-**Terminal 2 – MoveGroup:**
-```bash
+cd ~/rod_ws && source install/setup.bash
 ros2 launch scara_moveit move_group.launch.py
 ```
 
-**Terminal 3 – RViz:**
+**Terminal 4 – RViz Knickarm:**
 ```bash
+cd ~/rod_ws && source install/setup.bash
+ros2 launch arm_moveit moveit_rviz.launch.py
+```
+
+**Terminal 5 – RViz SCARA:**
+```bash
+cd ~/rod_ws && source install/setup.bash
 ros2 launch scara_moveit moveit_rviz.launch.py
 ```
 
-### D Nur RViz (ohne Gazebo)
+### C – Nur RViz (ohne Gazebo, für schnelles Testen)
 
 ```bash
+cd ~/rod_ws && source install/setup.bash
 ros2 launch arm_moveit demo.launch.py
+```
+
+```bash
+cd ~/rod_ws && source install/setup.bash
 ros2 launch scara_moveit demo.launch.py
 ```
 
@@ -117,8 +125,9 @@ ros2 launch scara_moveit demo.launch.py
 - MoveIt2 Konfiguration für beide Roboter
 - Gazebo Harmonic Integration — Knickarm planbar und ausführbar
 - Gazebo Harmonic Integration — SCARA planbar und ausführbar
+- Beide Roboter in einem Gazebo mit namespaced Controller Managern
 - Zellenszene: Säulen, Fixiereinheit, Förderbänder, Werkstücke (GLB)
-- Visualisierungs-Launch (`cell.launch.py`)
+- Visualisierungs-Launch (`cell_visual.launch.py`)
 - ROS2-Package Struktur
 
 ### ❌ Must-Have TODOs (Pflicht laut Angabe)
@@ -139,8 +148,9 @@ ros2 launch scara_moveit demo.launch.py
 ```
 main
 ├── Merle          — SCARA URDF + MoveIt Konfiguration (Merle)
-└── Raini          — Knickarm + MoveIt + Gazebo + Zellenszene (aktueller Stand)
-    └── Scara_Gazebo — SCARA Gazebo Integration (in Arbeit)
+└── Raini          — Knickarm + MoveIt + Gazebo + Zellenszene
+    └── Scara_Gazebo   — SCARA Gazebo Integration
+        └── cell_combined  — Beide Roboter in einem Gazebo (aktueller Stand)
 ```
 
 | Branch | Inhalt |
@@ -148,4 +158,5 @@ main
 | `main` | Basis beider Roboter |
 | `Merle` | SCARA URDF + MoveIt Konfiguration |
 | `Raini` | Knickarm + SCARA MoveIt, Gazebo Integration, Zellenszene |
-| `Scara_Gazebo` | SCARA Gazebo Integration (gz.launch.py, ros2_control, move_group Fix) |
+| `Scara_Gazebo` | SCARA Gazebo Integration |
+| `cell_combined` | Beide Roboter mit Controllern in einem Gazebo (aktueller Stand) |

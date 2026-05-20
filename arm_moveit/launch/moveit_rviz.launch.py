@@ -20,6 +20,7 @@ def generate_launch_description():
             moveit_config.planning_pipelines,
             moveit_config.joint_limits,
             {"use_sim_time": True},
+            {"move_group_namespace": "/arm"},
         ],
     )
 

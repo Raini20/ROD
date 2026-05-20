@@ -271,7 +271,7 @@
   <!-- ROS2 control plugin Gazebo -->
   <gazebo>
     <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-      <parameters>$(find robot_arm_6dof_assembly)/config/arm_controller.yaml</parameters>
+      <parameters>$(find robot_arm_6dof_assembly)/config/arm_controller_manager.yaml</parameters>
     </plugin>
   </gazebo>
 
