@@ -4,14 +4,14 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     moveit_config = (
-        MoveItConfigsBuilder("scara", package_name="scara_moveit")
+        MoveItConfigsBuilder("knickarm_6dof", package_name="arm_moveit")
         .to_moveit_configs()
     )
 
     robot_state_publisher = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
-        namespace="scara",
+        namespace="arm",
         parameters=[
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
@@ -22,7 +22,7 @@ def generate_launch_description():
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
-        namespace="scara",
+        namespace="arm",
         output="screen",
         parameters=[
             moveit_config.to_dict(),

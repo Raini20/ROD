@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     moveit_config = (
-        MoveItConfigsBuilder("scara", package_name="scara_moveit")
+        MoveItConfigsBuilder("knickarm_6dof", package_name="arm_moveit")
         .to_moveit_configs()
     )
 
@@ -20,7 +20,7 @@ def generate_launch_description():
             moveit_config.planning_pipelines,
             moveit_config.joint_limits,
             {"use_sim_time": True},
-            {"move_group_namespace": "/scara"},
+            {"move_group_namespace": "/arm"},
         ],
     )
 

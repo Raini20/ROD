@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="robot_arm_6dof_assembly">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-4.2133E-19 0.058842 4.8979E-18"
+        rpy="0 0 0" />
+      <mass
+        value="10.856" />
+      <inertia
+        ixx="0.056123"
+        ixy="-2.1197E-19"
+        ixz="-3.866E-20"
+        iyy="0.064497"
+        iyz="4.2538E-18"
+        izz="0.056123" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="link_1">
+    <inertial>
+      <origin
+        xyz="9.4285E-09 0.070484 -1.624E-07"
+        rpy="0 0 0" />
+      <mass
+        value="7.3362" />
+      <inertia
+        ixx="0.023594"
+        ixy="3.4024E-09"
+        ixz="4.382E-09"
+        iyy="0.022891"
+        iyz="-6.6103E-08"
+        izz="0.022929" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0 1 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_1"
+    type="revolute">
+    <origin
+      xyz="0 0 0.15"
+      rpy="1.5708 0 1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="link_1" />
+    <axis
+      xyz="0 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link_2">
+    <inertial>
+      <origin
+        xyz="2.7685E-17 2.7053E-09 0.39"
+        rpy="0 0 0" />
+      <mass
+        value="12.577" />
+      <inertia
+        ixx="1.0467"
+        ixy="-9.0856E-10"
+        ixz="2.6202E-09"
+        iyy="0.9886"
+        iyz="5.3521E-16"
+        izz="0.094901" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_2"
+    type="fixed">
+    <origin
+      xyz="0 0.09 0"
+      rpy="1.5708 0 3.1416" />
+    <parent
+      link="link_1" />
+    <child
+      link="link_2" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="link_3">
+    <inertial>
+      <origin
+        xyz="-0.15486 5.8334E-16 -7.1426E-09"
+        rpy="0 0 0" />
+      <mass
+        value="5.0111" />
+      <inertia
+        ixx="0.017184"
+        ixy="-2.7526E-17"
+        ixz="5.1801E-09"
+        iyy="0.10451"
+        iyz="-1.4706E-09"
+        izz="0.10804" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.5 0.5 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_3"
+    type="fixed">
+    <origin
+      xyz="0 0 0.78"
+      rpy="0 1.5708 0" />
+    <parent
+      link="link_2" />
+    <child
+      link="link_3" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="link_4">
+    <inertial>
+      <origin
+        xyz="-0.062648 -1.0839E-09 -1.4785E-09"
+        rpy="0 0 0" />
+      <mass
+        value="2.8147" />
+      <inertia
+        ixx="0.016383"
+        ixy="2.7934E-10"
+        ixz="4.5182E-10"
+        iyy="0.010718"
+        iyz="9.4548E-10"
+        izz="0.022619" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0 0.5 0.5 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_4"
+    type="fixed">
+    <origin
+      xyz="-0.32 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="link_3" />
+    <child
+      link="link_4" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="link_5">
+    <inertial>
+      <origin
+        xyz="1.1293E-07 0.073741 -0.0073233"
+        rpy="0 0 0" />
+      <mass
+        value="2.305" />
+      <inertia
+        ixx="0.0061277"
+        ixy="-1.1815E-09"
+        ixz="-3.4513E-10"
+        iyy="0.003854"
+        iyz="0.00038988"
+        izz="0.0054633" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.5 0 0.5 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_5"
+    type="fixed">
+    <origin
+      xyz="-0.17 0 0"
+      rpy="3.1416 0 -1.5708" />
+    <parent
+      link="link_4" />
+    <child
+      link="link_5" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="tool">
+    <inertial>
+      <origin
+        xyz="-6.249E-16 -0.0089196 -0.031888"
+        rpy="0 0 0" />
+      <mass
+        value="1.5393" />
+      <inertia
+        ixx="0.003164"
+        ixy="-1.0526E-13"
+        ixz="-3.7027E-19"
+        iyy="0.0037725"
+        iyz="2.9223E-05"
+        izz="0.0010376" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/tool.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.5 0.5 0.5 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://robot_arm_6dof_assembly/meshes/tool.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_tcp"
+    type="fixed">
+    <origin
+      xyz="0 0.095 -0.115"
+      rpy="-1.5708 0 3.1416" />
+    <parent
+      link="link_5" />
+    <child
+      link="tool" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>

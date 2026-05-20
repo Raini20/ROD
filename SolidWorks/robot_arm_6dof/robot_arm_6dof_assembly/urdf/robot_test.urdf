@@ -32,7 +32,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/base_link.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/base_link.STL" />
       </geometry>
       <material name="red">
         <color rgba="1 0 0 1" />
@@ -41,7 +41,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/base_link.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -58,7 +58,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_1.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_1.STL" />
       </geometry>
       <material name="green">
         <color rgba="0 1 0 1" />
@@ -67,7 +67,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_1.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_1.STL" />
       </geometry>
     </collision>
   </link>
@@ -94,7 +94,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_2.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_2.STL" />
       </geometry>
       <material name="blue">
         <color rgba="0 0 1 1" />
@@ -103,7 +103,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_2.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_2.STL" />
       </geometry>
     </collision>
   </link>
@@ -130,7 +130,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_3.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_3.STL" />
       </geometry>
       <material name="olive">
         <color rgba="0.5 0.5 0 1" />
@@ -139,7 +139,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_3.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_3.STL" />
       </geometry>
     </collision>
   </link>
@@ -166,7 +166,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_4.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_4.STL" />
       </geometry>
       <material name="teal">
         <color rgba="0 0.5 0.5 1" />
@@ -175,7 +175,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_4.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_4.STL" />
       </geometry>
     </collision>
   </link>
@@ -202,7 +202,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_5.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_5.STL" />
       </geometry>
       <material name="purple">
         <color rgba="0.5 0 0.5 1" />
@@ -211,7 +211,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/link_5.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/link_5.STL" />
       </geometry>
     </collision>
   </link>
@@ -238,7 +238,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/tool.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/tool.STL" />
       </geometry>
       <material name="grey">
         <color rgba="0.5 0.5 0.5 1" />
@@ -247,7 +247,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_arm_6dof_assembly/meshes/tool.STL" />
+        <mesh filename="file:///mnt/c/Users/Raini/Desktop/FH/Master/2/ROD/robot_arm_6dof/robot_arm_6dof_assembly/meshes/tool.STL" />
       </geometry>
     </collision>
   </link>
@@ -262,53 +262,4 @@
     <dynamics damping="0.2" friction="0.05" />
   </joint>
 
-
-  <!-- Joint State Publisher Gazebo -->
-  <gazebo>
-    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"/>
-  </gazebo>
-
-  <!-- ROS2 control plugin Gazebo -->
-  <gazebo>
-    <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-      <parameters>$(find robot_arm_6dof_assembly)/config/arm_controller_manager.yaml</parameters>
-    </plugin>
-  </gazebo>
-
-  <!-- Hardware Interfaces for ROS2 control -->
-  <ros2_control name="GazeboSimSystem" type="system">
-    <hardware>
-      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
-    </hardware>
-    <joint name="joint_1">
-      <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="joint_2">
-      <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="joint_3">
-      <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="joint_4">
-      <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="joint_5">
-      <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="joint_6">
-      <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-  </ros2_control>
 </robot>
