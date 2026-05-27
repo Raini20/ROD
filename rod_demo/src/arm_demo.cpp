@@ -15,27 +15,26 @@ int main(int argc, char** argv)
         rclcpp::Parameter("use_sim_time", true)
     });
 
-    auto node = rclcpp::Node::make_shared("arm_demo_node", "/arm", node_options);
+    auto node = rclcpp::Node::make_shared("arm_demo_node", node_options);
 
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(node);
     std::thread spinner([&executor]() { executor.spin(); });
 
-    static const std::string PLANNING_GROUP = "arm";
-    moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
+    // MoveGroup explizit auf /arm Namespace zeigen
+    moveit::planning_interface::MoveGroupInterface::Options opts(
+        "arm",               // planning group
+        "robot_description", // robot description topic
+        "/arm"               // move_group namespace
+    );
 
-    move_group.setMaxVelocityScalingFactor(0.1);
-    move_group.setMaxAccelerationScalingFactor(0.1);
+    moveit::planning_interface::MoveGroupInterface move_group(node, opts);
 
-    RCLCPP_INFO(LOGGER, "Planning Group: %s", PLANNING_GROUP.c_str());
+    move_group.setMaxVelocityScalingFactor(1);
+    move_group.setMaxAccelerationScalingFactor(1);
+
     RCLCPP_INFO(LOGGER, "Planning Frame: %s", move_group.getPlanningFrame().c_str());
     RCLCPP_INFO(LOGGER, "End Effector:   %s", move_group.getEndEffectorLink().c_str());
-
-    geometry_msgs::msg::PoseStamped current_pose = move_group.getCurrentPose();
-    RCLCPP_INFO(LOGGER, "Aktuelle Pose: x=%.3f y=%.3f z=%.3f",
-        current_pose.pose.position.x,
-        current_pose.pose.position.y,
-        current_pose.pose.position.z);
 
     // ----------------------------------------------------------------
     // Posen definieren (Joint-Werte in Radiant)
@@ -67,26 +66,6 @@ int main(int argc, char** argv)
     move_to_joints(home,  "Home");
     move_to_joints(zero,  "Zero");
     move_to_joints(home,  "Home");
-
-    // ----------------------------------------------------------------
-    // Kartesische Bewegung (Linear)
-    // ----------------------------------------------------------------
-    RCLCPP_INFO(LOGGER, "Kartesische Bewegung: 10cm nach oben");
-    std::vector<geometry_msgs::msg::Pose> waypoints;
-    geometry_msgs::msg::Pose linear_pose = move_group.getCurrentPose().pose;
-    linear_pose.position.z += 0.1;
-    waypoints.push_back(linear_pose);
-
-    moveit_msgs::msg::RobotTrajectory trajectory;
-    double fraction = move_group.computeCartesianPath(waypoints, 0.01, trajectory);
-    if (fraction > 0.9) {
-        move_group.execute(trajectory);
-        RCLCPP_INFO(LOGGER, "Kartesische Bewegung erfolgreich (%.1f%%)", fraction * 100.0);
-    } else {
-        RCLCPP_WARN(LOGGER, "Kartesische Bewegung nur %.1f%% planbar", fraction * 100.0);
-    }
-
-    move_to_joints(home, "Home (Ende)");
 
     executor.cancel();
     spinner.join();
