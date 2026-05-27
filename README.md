@@ -85,6 +85,9 @@ ros2 run rod_hmi rod_hmi
 - Roboter-Auswahl (Arm / SCARA)
 - TCP-Steuerung mit X+/X-/Y+/Y-/Z+/Z- Buttons
 - Schrittweite per Slider einstellbar (0.5cm – 20cm)
+- TCP Rotation (Roll/Pitch/Yaw) — nur beim Arm eingeblendet
+- Joint Slider für absolute Gelenkswinkel (beide Roboter)
+- Aktionen: Pick/Place (Arm), Screw/Unscrew (SCARA) — als Platzhalter
 - Aktuelle TCP-Position anzeige
 - Pose speichern (mit Name)
 - Gespeicherte Sequenz ausführen
@@ -152,29 +155,35 @@ ros2 launch scara_moveit demo.launch.py
 
 ## Status & TODOs
 
-### ✅ Erledigt
+### ✅ Vollständig implementiert
 - 6-DOF Knickarm URDF mit Saugnapf-Endeffektor
 - SCARA URDF mit Endeffektor (Merle)
-- MoveIt2 Konfiguration für beide Roboter
-- Gazebo Harmonic Integration — Knickarm planbar und ausführbar
-- Gazebo Harmonic Integration — SCARA planbar und ausführbar
-- Beide Roboter in einem Gazebo mit namespaced Controller Managern
+- MoveIt2 Konfiguration für beide Roboter (SRDF, Kinematics, Controller)
+- Gazebo Harmonic — beide Roboter planbar und ausführbar in einer Simulation
+- Namespaced Controller Manager (`/arm`, `/scara`)
 - Zellenszene: Säulen, Fixiereinheit, Förderbänder, Werkstücke (GLB)
-- Visualisierungs-Launch (`cell_visual.launch.py`)
-- Demo Scripts — Knickarm + SCARA fahren vordefinierte Posen (Joint + Kartesisch mit Quaternionen)
-- HMI — Dear ImGui GUI mit TCP-Steuerung, Pose speichern/exportieren, Sequenz ausführen
-- Startskript — HMI startet alles automatisch (ein Befehl)
-- ROS2-Package Struktur
+- Demo Scripts — Knickarm + SCARA fahren Posen (Joint-Targets + Kartesisch mit Quaternionen)
+- Startskript — `ros2 run rod_hmi rod_hmi` startet alles automatisch
 
-### ❌ Must-Have TODOs (Pflicht laut Angabe)
-- [ ] **Dokumentation als PDF** — Anwendungsfall beschreiben, alle Pakete/Abhängigkeiten dokumentieren, Startanleitung
+### 🟡 HMI — implementiert, aber Platzhalter
+- TCP Translation (X+/X-/Y+/Y-/Z+/Z-) ✅
+- TCP Rotation Roll/Pitch/Yaw (nur Arm) ✅
+- Joint Slider (absolute Gelenkswinkel, beide Roboter) ✅
+- Pose speichern mit Name + Aktion ✅
+- Sequenz ausführen (alle gespeicherten Posen der Reihe nach) ✅
+- Posen exportieren als CSV ✅
+- Pick / Place → **Platzhalter** — link_attacher noch nicht integriert
+- Screw / Unscrew → **Platzhalter** — SCARA joint_4 Rotation noch nicht implementiert
 
-### 💡 Nice-to-Have TODOs
-- [ ] Sequenz-Fix im HMI (Planung schlägt manchmal fehl)
-- [ ] Objekte greifen (gazebo_ros_link_attacher)
+### ❌ Noch offen (Pflicht laut Angabe)
+- [ ] **Dokumentation als PDF** — Anwendungsfall, Pakete, Abhängigkeiten, Startanleitung
+
+### 💡 Nice-to-Have
+- [ ] link_attacher Integration (echtes Pick & Place)
+- [ ] Schrauben-Simulation (SCARA joint_4 Rotation)
+- [ ] Vollautomatischer Ablauf (Knickarm + SCARA programmierter Workflow)
 - [ ] Schutzzaun in der Szene
-- [ ] Backup-Video der Simulation für Präsentation
-- [ ] Beide Roboter führen den Ablauf automatisch aus
+- [ ] Backup-Video der Simulation
 
 ---
 
