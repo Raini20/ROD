@@ -152,7 +152,8 @@ void ros_thread_func(int argc, char** argv)
         rclcpp::Parameter("robot_description", urdf),
         rclcpp::Parameter("robot_description_semantic", srdf),
     });
-    auto arm_node = rclcpp::Node::make_shared("hmi_arm_node", opts_arm);
+    opts_arm.arguments({"--ros-args", "-r", "joint_states:=/arm/joint_states"});
+    auto arm_node = rclcpp::Node::make_shared("hmi_arm_node", "/arm_hmi", opts_arm);
     moveit::planning_interface::MoveGroupInterface::Options arm_opts("arm", "robot_description", "/arm");
     g_arm_mg = std::make_shared<moveit::planning_interface::MoveGroupInterface>(arm_node, arm_opts);
     g_arm_mg->setMaxVelocityScalingFactor(0.1);
@@ -170,11 +171,12 @@ void ros_thread_func(int argc, char** argv)
     opts_scara.automatically_declare_parameters_from_overrides(true);
     opts_scara.parameter_overrides({
         rclcpp::Parameter("use_sim_time", true),
-        rclcpp::Parameter("robot_description", surdf),
-        rclcpp::Parameter("robot_description_semantic", ssrdf),
+        rclcpp::Parameter("scara_description", surdf),
+        rclcpp::Parameter("scara_description_semantic", ssrdf),
     });
-    auto scara_node = rclcpp::Node::make_shared("hmi_scara_node", opts_scara);
-    moveit::planning_interface::MoveGroupInterface::Options scara_opts("scara", "robot_description", "/scara");
+    opts_scara.arguments({"--ros-args", "-r", "joint_states:=/scara/joint_states"});
+    auto scara_node = rclcpp::Node::make_shared("hmi_scara_node", "/scara_hmi", opts_scara);
+    moveit::planning_interface::MoveGroupInterface::Options scara_opts("scara", "scara_description", "/scara");
     g_scara_mg = std::make_shared<moveit::planning_interface::MoveGroupInterface>(scara_node, scara_opts);
     g_scara_mg->setMaxVelocityScalingFactor(0.1);
     g_scara_mg->setMaxAccelerationScalingFactor(0.1);
