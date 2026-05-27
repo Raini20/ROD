@@ -28,6 +28,8 @@ Simulation einer industriellen Roboterzelle mit zwei Robotern:
 | `scara_moveit` | MoveIt2 Konfiguration für den SCARA | aktiv |
 | `rod_scene` | Szenenobjekte als GLB-Meshes (Säulen, Fixiereinheit, Förderbänder, Werkstücke) | aktiv |
 | `rod_cell` | Kombinierte Launch Files für die gesamte Zelle | aktiv |
+| `rod_demo` | C++ Demo Scripts — vordefinierte Posen anfahren (Arm + SCARA) | aktiv |
+| `rod_hmi` | Dear ImGui HMI — TCP-Steuerung, Pose speichern/exportieren, Sequenz | aktiv |
 | `SolidWorks` | Originale SolidWorks-Exports (COLCON_IGNORE, nur Referenz) | Archiv |
 | `EasyBot` | Referenzprojekt vom Lektor (COLCON_IGNORE) | Referenz |
 
@@ -39,7 +41,8 @@ Simulation einer industriellen Roboterzelle mit zwei Robotern:
 
 ```bash
 sudo apt install ros-jazzy-moveit ros-jazzy-ros-gz ros-jazzy-gz-ros2-control \
-  ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-joint-state-publisher*
+  ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-joint-state-publisher* \
+  libglfw3-dev libglfw3
 ```
 
 ### Repository klonen
@@ -69,9 +72,25 @@ cd ~/rod_ws && source install/setup.bash
 ros2 launch rod_cell cell_visual.launch.py
 ```
 
-### B – Beide Roboter mit MoveIt + Gazebo (voll steuerbar)
+### B – HMI (empfohlen — startet alles automatisch)
 
-Für die Live Demo — beide Roboter planbar und ausführbar in einer Simulation.
+Ein einziger Befehl öffnet das GUI und startet Gazebo + beide MoveGroups automatisch im Hintergrund.
+
+```bash
+cd ~/rod_ws && source install/setup.bash
+ros2 run rod_hmi rod_hmi
+```
+
+**Funktionen im HMI:**
+- Roboter-Auswahl (Arm / SCARA)
+- TCP-Steuerung mit X+/X-/Y+/Y-/Z+/Z- Buttons
+- Schrittweite per Slider einstellbar (0.5cm – 20cm)
+- Aktuelle TCP-Position anzeige
+- Pose speichern (mit Name)
+- Gespeicherte Sequenz ausführen
+- Posen exportieren als CSV (`/tmp/rod_poses.csv`)
+
+### C – Beide Roboter mit MoveIt + Gazebo (manuell, 5 Terminals)
 
 **Terminal 1 – Gazebo + beide Controller:**
 ```bash
@@ -103,7 +122,21 @@ cd ~/rod_ws && source install/setup.bash
 ros2 launch scara_moveit moveit_rviz.launch.py
 ```
 
-### C – Nur RViz (ohne Gazebo, für schnelles Testen)
+### D – Demo Poses (vordefinierte Posen abfahren)
+
+Benötigt: Terminal C1 + C2 + C3 laufen bereits.
+
+```bash
+# Knickarm Demo
+cd ~/rod_ws && source install/setup.bash
+ros2 launch rod_demo arm_demo.launch.py
+
+# SCARA Demo
+cd ~/rod_ws && source install/setup.bash
+ros2 run rod_demo scara_demo
+```
+
+### E – Nur RViz (ohne Gazebo, für schnelles Testen)
 
 ```bash
 cd ~/rod_ws && source install/setup.bash
@@ -128,35 +161,27 @@ ros2 launch scara_moveit demo.launch.py
 - Beide Roboter in einem Gazebo mit namespaced Controller Managern
 - Zellenszene: Säulen, Fixiereinheit, Förderbänder, Werkstücke (GLB)
 - Visualisierungs-Launch (`cell_visual.launch.py`)
+- Demo Scripts — Knickarm + SCARA fahren vordefinierte Posen (Joint + Kartesisch mit Quaternionen)
+- HMI — Dear ImGui GUI mit TCP-Steuerung, Pose speichern/exportieren, Sequenz ausführen
+- Startskript — HMI startet alles automatisch (ein Befehl)
 - ROS2-Package Struktur
 
 ### ❌ Must-Have TODOs (Pflicht laut Angabe)
-- [ ] **HMI** — mindestens Konsolenapplikation die einen Roboter am TCP linear bewegen kann (IK nötig)
-- [ ] **Startskript** — ein einziger Befehl (bash oder ros2 launch) startet die gesamte Simulation
 - [ ] **Dokumentation als PDF** — Anwendungsfall beschreiben, alle Pakete/Abhängigkeiten dokumentieren, Startanleitung
 
 ### 💡 Nice-to-Have TODOs
-- [ ] GUI für HMI (z.B. Tkinter oder Qt)
+- [ ] Sequenz-Fix im HMI (Planung schlägt manchmal fehl)
+- [ ] Objekte greifen (gazebo_ros_link_attacher)
 - [ ] Schutzzaun in der Szene
 - [ ] Backup-Video der Simulation für Präsentation
-- [ ] Beide Roboter führen den Ablauf automatisch aus (Programmierung des Workflows)
+- [ ] Beide Roboter führen den Ablauf automatisch aus
 
 ---
 
 ## Branches
 
-```
-main
-├── Merle          — SCARA URDF + MoveIt Konfiguration (Merle)
-└── Raini          — Knickarm + MoveIt + Gazebo + Zellenszene
-    └── Scara_Gazebo   — SCARA Gazebo Integration
-        └── cell_combined  — Beide Roboter in einem Gazebo (aktueller Stand)
-```
-
 | Branch | Inhalt |
 |---|---|
-| `main` | Basis beider Roboter |
-| `Merle` | SCARA URDF + MoveIt Konfiguration |
-| `Raini` | Knickarm + SCARA MoveIt, Gazebo Integration, Zellenszene |
-| `Scara_Gazebo` | SCARA Gazebo Integration |
-| `cell_combined` | Beide Roboter mit Controllern in einem Gazebo (aktueller Stand) |
+| `main` | Stabiler Stand — beide Roboter, Szene, MoveIt |
+| `demo_poses` | rod_demo C++ Package — vordefinierte Posen mit Quaternionen |
+| `hmi` | rod_hmi Dear ImGui HMI (in Entwicklung) |
