@@ -39,6 +39,18 @@ def generate_launch_description():
         os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'rod_scene', 'share'),
     ])
 
+    def make_dynamic_sdf(name, mesh_path, x, y, z, roll=0, pitch=0, yaw=0):
+        return f"""<?xml version="1.0"?>
+    <sdf version="1.8">
+    <model name="{name}">
+        <static>true</static>
+        <link name="link">
+        <collision name="collision"><geometry><box><size>0.2 0.15 0.1</size></box></geometry></collision>
+        <visual name="visual"><geometry><mesh><uri>{mesh_path}</uri></mesh></geometry></visual>
+        </link>
+    </model>
+    </sdf>"""
+
     def make_static_sdf(name, mesh_path, x, y, z, roll=0, pitch=0, yaw=0):
         return f"""<?xml version="1.0"?>
 <sdf version="1.8">
@@ -153,11 +165,11 @@ def generate_launch_description():
              arguments=['-name', 'fb3', '-string',
                         make_static_sdf('fb3', conveyor_mesh, 0, -0.3, 0, 1.5708, 0, 3.14159)]),
         Node(package='ros_gz_sim', executable='create',
-             arguments=['-name', 'toaster_shell', '-string',
-                        make_static_sdf('toaster_shell', toaster_shell_mesh, -0.75, 0.45, 1.0)]),
+             arguments=['-name', 'toaster_shell', '-x', '-0.75', '-y', '0.45', '-z', '1.0', '-string',
+                        make_dynamic_sdf('toaster_shell', toaster_shell_mesh, -0.75, 0.45, 1.0)]),
         Node(package='ros_gz_sim', executable='create',
-             arguments=['-name', 'toaster_innen', '-string',
-                        make_static_sdf('toaster_innen', toaster_innen_mesh, 0.0, 0.45, 1.168, 3.14159, 0, 0)]),
+             arguments=['-name', 'toaster_innen', '-x', '0.0', '-y', '0.45', '-z', '1.168', '-R', '3.14159', '-string',
+                        make_dynamic_sdf('toaster_innen', toaster_innen_mesh, 0.0, 0.45, 1.168, 3.14159, 0, 0)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'output_shell', '-string',
                         make_static_sdf('output_shell', toaster_shell_mesh, 0.0, -0.45, 1.0)]),

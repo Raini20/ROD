@@ -12,6 +12,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(gz-transport13 REQUIRED)
+find_package(gz-msgs10 REQUIRED)
 
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 set(IMGUI_SOURCES
@@ -27,7 +29,7 @@ add_executable(rod_hmi src/rod_hmi.cpp ${IMGUI_SOURCES})
 
 target_include_directories(rod_hmi PRIVATE ${IMGUI_DIR})
 
-target_link_libraries(rod_hmi OpenGL::GL glfw)
+target_link_libraries(rod_hmi OpenGL::GL glfw gz-transport13::core gz-msgs10::core)
 
 ament_target_dependencies(rod_hmi
   rclcpp

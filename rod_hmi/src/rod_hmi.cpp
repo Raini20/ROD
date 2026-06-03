@@ -3,6 +3,10 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
+#include <gz/transport/Node.hh>
+#include <gz/msgs/pose.pb.h>
+#include <gz/msgs/boolean.pb.h>
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -16,7 +20,12 @@
 #include <sstream>
 #include <cstdlib>
 #include <mutex>
+#include <map>
+#include <cmath>
 
+// -----------------------------------------------------------------------
+// Aktionen
+// -----------------------------------------------------------------------
 enum class Action { None, Pick, Place, Screw, Unscrew };
 
 std::string action_to_string(Action a) {
@@ -35,6 +44,9 @@ struct SavedPose {
     Action action = Action::None;
 };
 
+// -----------------------------------------------------------------------
+// Globale Variablen
+// -----------------------------------------------------------------------
 static std::atomic<bool> g_arm_ready{false};
 static std::atomic<bool> g_scara_ready{false};
 static std::atomic<bool> g_ros_running{false};
@@ -42,8 +54,20 @@ static std::string g_status = "Starte ROS...";
 static std::mutex g_status_mutex;
 static std::vector<SavedPose> g_saved_poses;
 static std::mutex g_poses_mutex;
+
 static std::shared_ptr<moveit::planning_interface::MoveGroupInterface> g_arm_mg;
 static std::shared_ptr<moveit::planning_interface::MoveGroupInterface> g_scara_mg;
+
+// Pick/Place State
+static gz::transport::Node g_gz_node;
+static std::string g_picked_object = "";
+static std::atomic<bool> g_picking{false};
+static double g_off_x=0, g_off_y=0, g_off_z=0;
+static std::mutex g_obj_mutex;
+static std::map<std::string, std::array<double,3>> g_object_positions = {
+    {"toaster_shell", {-0.75, 0.45, 1.0}},
+    {"toaster_innen", {0.0,   0.45, 1.168}},
+};
 
 void set_status(const std::string& s) {
     std::lock_guard<std::mutex> lock(g_status_mutex);
@@ -51,14 +75,109 @@ void set_status(const std::string& s) {
     RCLCPP_INFO(rclcpp::get_logger("rod_hmi"), "%s", s.c_str());
 }
 
-void execute_action(Action a, const std::string& robot) {
+// -----------------------------------------------------------------------
+// Gz Transport: Pose setzen
+// -----------------------------------------------------------------------
+void gz_set_pose(const std::string& name, double x, double y, double z,
+                 double qx=0, double qy=0, double qz=0, double qw=1)
+{
+    gz::msgs::Pose req;
+    gz::msgs::Boolean rep;
+    bool result;
+    req.set_name(name);
+    req.mutable_position()->set_x(x);
+    req.mutable_position()->set_y(y);
+    req.mutable_position()->set_z(z);
+    req.mutable_orientation()->set_x(qx);
+    req.mutable_orientation()->set_y(qy);
+    req.mutable_orientation()->set_z(qz);
+    req.mutable_orientation()->set_w(qw);
+    g_gz_node.Request("/world/empty/set_pose", req, 200, rep, result);
+}
+
+// -----------------------------------------------------------------------
+// Pick
+// -----------------------------------------------------------------------
+void do_pick(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
+{
+    auto tcp = mg->getCurrentPose().pose;
+    // Arm spawn offset: Arm steht in Gazebo bei (-0.75, 0, 1.0)
+    const double ARM_OX=-0.75, ARM_OY=0.0, ARM_OZ=1.0;
+    double tx = tcp.position.x + ARM_OX;
+    double ty = tcp.position.y + ARM_OY;
+    double tz = tcp.position.z + ARM_OZ;
+
+    // Nächstes Objekt finden
+    std::string closest = "";
+    double min_dist = 1e9;
+    {
+        std::lock_guard<std::mutex> lock(g_obj_mutex);
+        for (auto& [name, pos] : g_object_positions) {
+            double d = std::sqrt(std::pow(pos[0]-tx,2)+std::pow(pos[1]-ty,2)+std::pow(pos[2]-tz,2));
+            if (d < min_dist) { min_dist = d; closest = name; }
+        }
+    }
+
+    if (closest.empty()) { set_status("Kein Objekt gefunden!"); return; }
+
+    {
+        std::lock_guard<std::mutex> lock(g_obj_mutex);
+        auto& pos = g_object_positions[closest];
+        g_off_x = pos[0]-tx; g_off_y = pos[1]-ty; g_off_z = pos[2]-tz;
+    }
+
+    g_picked_object = closest;
+    g_picking = true;
+
+    RCLCPP_INFO(rclcpp::get_logger("rod_hmi"),
+        "Pick: %s  Distanz=%.3fm  Offset=(%.3f, %.3f, %.3f)",
+        closest.c_str(), min_dist, g_off_x, g_off_y, g_off_z);
+    set_status("Pick: " + closest + " (Dist: " + std::to_string((int)(min_dist*100)) + "cm)");
+
+    // Follow-Thread
+    std::thread([mg](){
+        while (g_picking && mg) {
+            auto tcp = mg->getCurrentPose().pose;
+            const double ARM_OX=-0.75, ARM_OZ=1.0;
+            double nx = tcp.position.x + ARM_OX + g_off_x;
+            double ny = tcp.position.y + g_off_y;
+            double nz = tcp.position.z + ARM_OZ + g_off_z;
+            gz_set_pose(g_picked_object, nx, ny, nz,
+                tcp.orientation.x, tcp.orientation.y,
+                tcp.orientation.z, tcp.orientation.w);
+            {
+                std::lock_guard<std::mutex> lock(g_obj_mutex);
+                g_object_positions[g_picked_object] = {nx, ny, nz};
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(80));
+        }
+    }).detach();
+}
+
+// -----------------------------------------------------------------------
+// Place
+// -----------------------------------------------------------------------
+void do_place()
+{
+    g_picking = false;
+    RCLCPP_INFO(rclcpp::get_logger("rod_hmi"), "Place: %s abgesetzt", g_picked_object.c_str());
+    set_status("Place: " + g_picked_object + " abgesetzt");
+    g_picked_object = "";
+}
+
+// -----------------------------------------------------------------------
+// Aktion ausführen
+// -----------------------------------------------------------------------
+void execute_action(Action a, const std::string& robot,
+                    std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
+{
     switch(a) {
         case Action::Pick:
-            set_status(robot + ": Pick — Platzhalter (link_attacher)");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500)); break;
+            if (mg) do_pick(mg);
+            break;
         case Action::Place:
-            set_status(robot + ": Place — Platzhalter (link_attacher)");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500)); break;
+            do_place();
+            break;
         case Action::Screw:
             set_status(robot + ": Screw — Platzhalter");
             std::this_thread::sleep_for(std::chrono::milliseconds(500)); break;
@@ -69,6 +188,9 @@ void execute_action(Action a, const std::string& robot) {
     }
 }
 
+// -----------------------------------------------------------------------
+// Kartesische Bewegung
+// -----------------------------------------------------------------------
 void move_cartesian(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     double dx, double dy, double dz, const std::string& robot_name)
@@ -93,6 +215,9 @@ void move_cartesian(
     }
 }
 
+// -----------------------------------------------------------------------
+// Rotation
+// -----------------------------------------------------------------------
 void move_rotation(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     double droll, double dpitch, double dyaw, const std::string& robot_name)
@@ -120,6 +245,9 @@ void move_rotation(
     else { set_status(robot_name + ": Rotation nicht möglich"); }
 }
 
+// -----------------------------------------------------------------------
+// Pose speichern
+// -----------------------------------------------------------------------
 void save_current_pose(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     const std::string& robot_name, const std::string& pose_name, Action action)
@@ -139,6 +267,9 @@ void save_current_pose(
     set_status("Pose gespeichert: " + pose_name + " [" + action_to_string(action) + "]");
 }
 
+// -----------------------------------------------------------------------
+// Sequenz
+// -----------------------------------------------------------------------
 void run_sequence()
 {
     std::vector<SavedPose> poses_copy;
@@ -167,23 +298,24 @@ void run_sequence()
             RCLCPP_INFO(rclcpp::get_logger("rod_hmi"),
                 "Sequenz [%zu/%zu]: %s OK (%.0f%%)", i+1, poses_copy.size(), sp.name.c_str(), fraction*100.0);
         } else {
-            RCLCPP_WARN(rclcpp::get_logger("rod_hmi"), "Kartesisch %.0f%% — Fallback setPoseTarget", fraction*100.0);
             mg->setPoseTarget(target);
             moveit::planning_interface::MoveGroupInterface::Plan plan;
             if (mg->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS) {
                 mg->execute(plan);
-                RCLCPP_INFO(rclcpp::get_logger("rod_hmi"), "Sequenz [%zu/%zu]: %s OK (Fallback)", i+1, poses_copy.size(), sp.name.c_str());
             } else {
                 RCLCPP_ERROR(rclcpp::get_logger("rod_hmi"), "Sequenz [%zu/%zu]: %s FAILED", i+1, poses_copy.size(), sp.name.c_str());
-                set_status("FEHLER: " + sp.name); mg->clearPoseTargets(); continue;
+                mg->clearPoseTargets(); continue;
             }
             mg->clearPoseTargets();
         }
-        execute_action(sp.action, sp.robot);
+        execute_action(sp.action, sp.robot, mg);
     }
     set_status("Sequenz abgeschlossen (" + std::to_string(poses_copy.size()) + " Posen)");
 }
 
+// -----------------------------------------------------------------------
+// CSV Export
+// -----------------------------------------------------------------------
 void export_poses(const std::string& path) {
     std::ofstream f(path);
     f << "# ROD Pose Export\n# robot, name, x, y, z, qx, qy, qz, qw, action\n";
@@ -196,6 +328,9 @@ void export_poses(const std::string& path) {
     set_status("Exportiert: " + path);
 }
 
+// -----------------------------------------------------------------------
+// Hilfsfunktionen
+// -----------------------------------------------------------------------
 std::string read_file(const std::string& path) {
     std::ifstream f(path); std::stringstream ss; ss << f.rdbuf(); return ss.str();
 }
@@ -205,6 +340,9 @@ std::string replace_all(std::string s, const std::string& from, const std::strin
     return s;
 }
 
+// -----------------------------------------------------------------------
+// ROS Thread
+// -----------------------------------------------------------------------
 void ros_thread_func(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
@@ -268,6 +406,9 @@ void ros_thread_func(int argc, char** argv)
     rclcpp::shutdown();
 }
 
+// -----------------------------------------------------------------------
+// Main / GUI Loop
+// -----------------------------------------------------------------------
 int main(int argc, char** argv)
 {
     std::thread ros_t(ros_thread_func, argc, argv);
@@ -277,7 +418,7 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(960, 750, "ROD HMI", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(960, 800, "ROD HMI", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -292,7 +433,6 @@ int main(int argc, char** argv)
     float step_size = 0.05f, rot_step = 0.1f;
     char pose_name_buf[64] = "Pose_1";
     int pose_counter = 1, selected_action = 0;
-
     float arm_joints[6]   = {0.0f, 0.0f, -1.5708f, -1.5708f, 0.0f, 0.0f};
     float scara_joints[4] = {0.0f, 0.0f,  0.0f,     0.0f};
 
@@ -329,6 +469,8 @@ int main(int argc, char** argv)
         ImGui::Separator();
         { std::lock_guard<std::mutex> lock(g_status_mutex);
           ImGui::TextColored(ImVec4(0.3f,1.0f,0.3f,1.0f), "Status: %s", g_status.c_str()); }
+
+        // Verbindungsstatus + Pick-Status
         ImGui::Text("Arm:");   ImGui::SameLine();
         if (g_arm_ready)   ImGui::TextColored(ImVec4(0,1,0,1), "VERBUNDEN");
         else               ImGui::TextColored(ImVec4(1,0.5f,0,1), "Warte...");
@@ -336,6 +478,10 @@ int main(int argc, char** argv)
         ImGui::Text("SCARA:"); ImGui::SameLine();
         if (g_scara_ready) ImGui::TextColored(ImVec4(0,1,0,1), "VERBUNDEN");
         else               ImGui::TextColored(ImVec4(1,0.5f,0,1), "Warte...");
+        ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+        if (g_picking) {
+            ImGui::TextColored(ImVec4(1,1,0,1), "GREIFT: %s", g_picked_object.c_str());
+        }
         ImGui::Separator();
 
         bool enabled = g_ros_running.load();
@@ -433,7 +579,7 @@ int main(int argc, char** argv)
         ImGui::Separator();
 
         ImGui::Text("Gespeicherte Posen (%zu):", g_saved_poses.size());
-        ImGui::BeginChild("poses_list", ImVec2(0,110), true);
+        ImGui::BeginChild("poses_list", ImVec2(0,100), true);
         { std::lock_guard<std::mutex> lock(g_poses_mutex);
           for (int i=0; i<(int)g_saved_poses.size(); i++) {
               auto& sp=g_saved_poses[i];
@@ -453,12 +599,17 @@ int main(int argc, char** argv)
         if (ImGui::Button("Exportieren")) std::thread([]{ export_poses("/tmp/rod_poses.csv"); }).detach();
         ImGui::EndDisabled();
 
+        // Objekte Status
         ImGui::Separator();
-        { std::lock_guard<std::mutex> lock(tcp_mutex);
-          ImGui::Text("TCP [%s]:  x = %7.3f   y = %7.3f   z = %7.3f",
-              rname().c_str(), tcp_x, tcp_y, tcp_z); }
+        ImGui::Text("Objekte in Simulation:");
+        { std::lock_guard<std::mutex> lock(g_obj_mutex);
+          for (auto& [name, pos] : g_object_positions) {
+              bool is_picked = (g_picking && g_picked_object == name);
+              if (is_picked) ImGui::TextColored(ImVec4(1,1,0,1), "  [GEGRIFFEN] %s  x=%.3f y=%.3f z=%.3f", name.c_str(), pos[0], pos[1], pos[2]);
+              else           ImGui::Text("  %s  x=%.3f y=%.3f z=%.3f", name.c_str(), pos[0], pos[1], pos[2]);
+          }
+        }
 
-        // ---- Gelenkswinkel Slider ----
         ImGui::Separator();
         ImGui::Text("Gelenkswinkel (absolut)");
         ImGui::BeginDisabled(!enabled);
@@ -474,15 +625,14 @@ int main(int argc, char** argv)
                     g_arm_mg->setJointValueTarget(jv);
                     moveit::planning_interface::MoveGroupInterface::Plan p;
                     if (g_arm_mg->plan(p) == moveit::core::MoveItErrorCode::SUCCESS) {
-                        g_arm_mg->execute(p);
-                        set_status("arm: Joints angefahren");
+                        g_arm_mg->execute(p); set_status("arm: Joints angefahren");
                     } else set_status("arm: Joints Planung fehlgeschlagen");
                 }).detach();
             }
         } else {
             const char* scara_names[] = {"J1","J2","J3 (lin)","J4"};
-            float limits_lo[] = {-3.14159f, -3.14159f, -0.4f, -3.14159f};
-            float limits_hi[] = { 3.14159f,  3.14159f,  0.0f,  3.14159f};
+            float limits_lo[] = {-3.14159f,-3.14159f,-0.4f,-3.14159f};
+            float limits_hi[] = { 3.14159f, 3.14159f, 0.0f, 3.14159f};
             for (int i = 0; i < 4; i++) {
                 ImGui::SetNextItemWidth(300);
                 ImGui::SliderFloat(scara_names[i], &scara_joints[i], limits_lo[i], limits_hi[i]);
@@ -493,14 +643,18 @@ int main(int argc, char** argv)
                     g_scara_mg->setJointValueTarget(jv);
                     moveit::planning_interface::MoveGroupInterface::Plan p;
                     if (g_scara_mg->plan(p) == moveit::core::MoveItErrorCode::SUCCESS) {
-                        g_scara_mg->execute(p);
-                        set_status("scara: Joints angefahren");
+                        g_scara_mg->execute(p); set_status("scara: Joints angefahren");
                     } else set_status("scara: Joints Planung fehlgeschlagen");
                 }).detach();
             }
         }
         ImGui::EndDisabled();
-        
+
+        ImGui::Separator();
+        { std::lock_guard<std::mutex> lock(tcp_mutex);
+          ImGui::Text("TCP [%s]:  x = %7.3f   y = %7.3f   z = %7.3f",
+              rname().c_str(), tcp_x, tcp_y, tcp_z); }
+
         ImGui::End();
         ImGui::Render();
         int w, h; glfwGetFramebufferSize(window, &w, &h);
@@ -511,6 +665,7 @@ int main(int argc, char** argv)
         glfwSwapBuffers(window);
     }
 
+    g_picking = false;
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
