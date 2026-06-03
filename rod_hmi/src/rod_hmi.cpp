@@ -64,10 +64,15 @@ static std::string g_picked_object = "";
 static std::atomic<bool> g_picking{false};
 static double g_off_x=0, g_off_y=0, g_off_z=0;
 static std::mutex g_obj_mutex;
+static std::map<std::string, std::array<double,4>> g_object_orientations = {
+    {"toaster_shell", {0.0, 0.0, 0.0, 1.0}},       // keine Rotation
+    {"toaster_innen", {1.0, 0.0, 0.0, 0.0}},        // roll=PI (umgedreht)
+};
 static std::map<std::string, std::array<double,3>> g_object_positions = {
     {"toaster_shell", {-0.75, 0.45, 1.0}},
     {"toaster_innen", {0.0,   0.45, 1.168}},
 };
+static double g_off_rqx=0, g_off_rqy=0, g_off_rqz=0, g_off_rqw=1;
 
 void set_status(const std::string& s) {
     std::lock_guard<std::mutex> lock(g_status_mutex);
@@ -123,7 +128,28 @@ void do_pick(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
     {
         std::lock_guard<std::mutex> lock(g_obj_mutex);
         auto& pos = g_object_positions[closest];
-        g_off_x = pos[0]-tx; g_off_y = pos[1]-ty; g_off_z = pos[2]-tz;
+        // World-Offset: Objekt relativ zum TCP in World-Frame
+        double wox = pos[0]-tx, woy = pos[1]-ty, woz = pos[2]-tz;
+        // In TCP-lokalen Frame rotieren: offset_local = q_tcp_inv * offset_world
+        double tqx_=tcp.orientation.x, tqy_=tcp.orientation.y,
+               tqz_=tcp.orientation.z, tqw_=tcp.orientation.w;
+        double iqx_=-tqx_, iqy_=-tqy_, iqz_=-tqz_, iqw_=tqw_;
+        double cx_=iqy_*woz-iqz_*woy, cy_=iqz_*wox-iqx_*woz, cz_=iqx_*woy-iqy_*wox;
+        double cx2_=iqy_*cz_-iqz_*cy_, cy2_=iqz_*cx_-iqx_*cz_, cz2_=iqx_*cy_-iqy_*cx_;
+        g_off_x = wox + 2*iqw_*cx_ + 2*cx2_;
+        g_off_y = woy + 2*iqw_*cy_ + 2*cy2_;
+        g_off_z = woz + 2*iqw_*cz_ + 2*cz2_;
+        // Relativer Quaternion-Offset: q_offset = q_tcp_inv * q_obj
+        auto& ori = g_object_orientations[closest];
+        double oqx=ori[0], oqy=ori[1], oqz=ori[2], oqw=ori[3];
+        double tqx=tcp.orientation.x, tqy=tcp.orientation.y,
+               tqz=tcp.orientation.z, tqw=tcp.orientation.w;
+        // q_tcp_inv = (-tqx, -tqy, -tqz, tqw) fuer unit quaternion
+        double iqx=-tqx, iqy=-tqy, iqz=-tqz, iqw=tqw;
+        g_off_rqw = iqw*oqw - iqx*oqx - iqy*oqy - iqz*oqz;
+        g_off_rqx = iqw*oqx + iqx*oqw + iqy*oqz - iqz*oqy;
+        g_off_rqy = iqw*oqy - iqx*oqz + iqy*oqw + iqz*oqx;
+        g_off_rqz = iqw*oqz + iqx*oqy - iqy*oqx + iqz*oqw;
     }
 
     g_picked_object = closest;
@@ -139,12 +165,27 @@ void do_pick(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
         while (g_picking && mg) {
             auto tcp = mg->getCurrentPose().pose;
             const double ARM_OX=-0.75, ARM_OZ=1.0;
-            double nx = tcp.position.x + ARM_OX + g_off_x;
-            double ny = tcp.position.y + g_off_y;
-            double nz = tcp.position.z + ARM_OZ + g_off_z;
-            gz_set_pose(g_picked_object, nx, ny, nz,
-                tcp.orientation.x, tcp.orientation.y,
-                tcp.orientation.z, tcp.orientation.w);
+            // Lokalen Offset mit aktueller TCP-Rotation in World-Frame
+            double tqx_=tcp.orientation.x, tqy_=tcp.orientation.y,
+                   tqz_=tcp.orientation.z, tqw_=tcp.orientation.w;
+            double cx_=tqy_*g_off_z-tqz_*g_off_y, cy_=tqz_*g_off_x-tqx_*g_off_z,
+                   cz_=tqx_*g_off_y-tqy_*g_off_x;
+            double cx2_=tqy_*cz_-tqz_*cy_, cy2_=tqz_*cx_-tqx_*cz_,
+                   cz2_=tqx_*cy_-tqy_*cx_;
+            double wox=g_off_x+2*tqw_*cx_+2*cx2_;
+            double woy=g_off_y+2*tqw_*cy_+2*cy2_;
+            double woz=g_off_z+2*tqw_*cz_+2*cz2_;
+            double nx = tcp.position.x + ARM_OX + wox;
+            double ny = tcp.position.y + woy;
+            double nz = tcp.position.z + ARM_OZ + woz;
+            // q_result = q_tcp_current * q_offset
+            double tqx=tcp.orientation.x, tqy=tcp.orientation.y,
+                   tqz=tcp.orientation.z, tqw=tcp.orientation.w;
+            double rqw=tqw*g_off_rqw - tqx*g_off_rqx - tqy*g_off_rqy - tqz*g_off_rqz;
+            double rqx=tqw*g_off_rqx + tqx*g_off_rqw + tqy*g_off_rqz - tqz*g_off_rqy;
+            double rqy=tqw*g_off_rqy - tqx*g_off_rqz + tqy*g_off_rqw + tqz*g_off_rqx;
+            double rqz=tqw*g_off_rqz + tqx*g_off_rqy - tqy*g_off_rqx + tqz*g_off_rqw;
+            gz_set_pose(g_picked_object, nx, ny, nz, rqx, rqy, rqz, rqw);
             {
                 std::lock_guard<std::mutex> lock(g_obj_mutex);
                 g_object_positions[g_picked_object] = {nx, ny, nz};
