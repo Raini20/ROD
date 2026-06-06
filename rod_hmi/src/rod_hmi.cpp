@@ -42,6 +42,7 @@ struct SavedPose {
     std::string name, robot;
     double x, y, z, qx, qy, qz, qw;
     Action action = Action::None;
+    std::vector<double> joints;
 };
 
 // -----------------------------------------------------------------------
@@ -334,6 +335,8 @@ void run_sequence()
         waypoints.push_back(target);
         moveit_msgs::msg::RobotTrajectory trajectory;
         double fraction = mg->computeCartesianPath(waypoints, 0.005, trajectory);
+        RCLCPP_INFO(rclcpp::get_logger("rod_hmi"),
+        "Cartesian fraction [%s]: %.2f", sp.name.c_str(), fraction);
         if (fraction > 0.5) {
             mg->execute(trajectory);
             RCLCPP_INFO(rclcpp::get_logger("rod_hmi"),
@@ -361,12 +364,68 @@ void export_poses(const std::string& path) {
     std::ofstream f(path);
     f << "# ROD Pose Export\n# robot, name, x, y, z, qx, qy, qz, qw, action\n";
     std::lock_guard<std::mutex> lock(g_poses_mutex);
-    for (auto& sp : g_saved_poses)
+    for (auto& sp : g_saved_poses) {
         f << sp.robot << ", " << sp.name << ", "
-          << sp.x << ", " << sp.y << ", " << sp.z << ", "
-          << sp.qx << ", " << sp.qy << ", " << sp.qz << ", " << sp.qw
-          << ", " << action_to_string(sp.action) << "\n";
+        << sp.x << ", " << sp.y << ", " << sp.z << ", "
+        << sp.qx << ", " << sp.qy << ", " << sp.qz << ", " << sp.qw
+        << ", " << action_to_string(sp.action);
+        for (auto j : sp.joints) f << ", " << j;
+        f << "\n";
+    }
     set_status("Exportiert: " + path);
+}
+
+Action string_to_action(const std::string& s) {
+    if (s == "Pick")    return Action::Pick;
+    if (s == "Place")   return Action::Place;
+    if (s == "Screw")   return Action::Screw;
+    if (s == "Unscrew") return Action::Unscrew;
+    return Action::None;
+}
+
+void import_poses(const std::string& path) {
+    std::ifstream f(path);
+    if (!f.is_open()) { set_status("Import FAILED: " + path); return; }
+    std::vector<SavedPose> imported;
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.empty() || line[0] == '#') continue;  // Kommentare überspringen
+        std::stringstream ss(line);
+        std::string tok;
+        std::vector<std::string> cols;
+        while (std::getline(ss, tok, ',')) {
+            // Whitespace trimmen
+            tok.erase(0, tok.find_first_not_of(" \t\r"));
+            tok.erase(tok.find_last_not_of(" \t\r") + 1);
+            cols.push_back(tok);
+        }
+        if (cols.size() < 9) continue;  // unvollständige Zeile
+        SavedPose sp;
+        try {
+            sp.robot  = cols[0];
+            sp.name   = cols[1];
+            sp.x      = std::stod(cols[2]);
+            sp.y      = std::stod(cols[3]);
+            sp.z      = std::stod(cols[4]);
+            sp.qx     = std::stod(cols[5]);
+            sp.qy     = std::stod(cols[6]);
+            sp.qz     = std::stod(cols[7]);
+            sp.qw     = std::stod(cols[8]);
+            sp.action = (cols.size() >= 10) ? string_to_action(cols[9]) : Action::None;
+        for (size_t c = 10; c < cols.size(); c++) {
+            try { sp.joints.push_back(std::stod(cols[c])); }
+            catch (...) { break; }
+        }
+        } catch (...) { continue; }  // Parse-Fehler → Zeile überspringen
+        imported.push_back(sp);
+    }
+    {
+        std::lock_guard<std::mutex> lock(g_poses_mutex);
+        g_saved_poses.insert(g_saved_poses.end(), imported.begin(), imported.end());
+    }
+    set_status("Importiert: " + std::to_string(imported.size()) + " Posen aus " + path);
+    RCLCPP_INFO(rclcpp::get_logger("rod_hmi"), "Importiert: %zu Posen aus %s",
+                imported.size(), path.c_str());
 }
 
 // -----------------------------------------------------------------------
@@ -629,6 +688,105 @@ int main(int argc, char** argv)
                   action_to_string(sp.action).c_str()); } }
         ImGui::EndChild();
 
+        // Konfiguration wählen
+        ImGui::Separator();
+        ImGui::Text("Konfiguration wählen:");
+
+        static int sel_pose_idx = 0;
+        {
+            std::vector<std::string> names;
+            { std::lock_guard<std::mutex> lk(g_poses_mutex);
+            for (auto& sp : g_saved_poses) names.push_back("[" + sp.robot + "] " + sp.name); }
+
+            if (!names.empty()) {
+                sel_pose_idx = std::min(sel_pose_idx, (int)names.size()-1);
+                std::vector<const char*> cnames;
+                for (auto& n : names) cnames.push_back(n.c_str());
+                ImGui::SetNextItemWidth(220);
+                ImGui::Combo("##kfg_sel", &sel_pose_idx, cnames.data(), (int)cnames.size());
+
+                ImGui::BeginDisabled(!enabled);
+
+                ImGui::SameLine();
+                if (ImGui::Button("Anfahren")) {
+                    SavedPose sp_copy;
+                    { std::lock_guard<std::mutex> lk(g_poses_mutex);
+                    sp_copy = g_saved_poses[sel_pose_idx]; }
+                    std::thread([sp_copy]{
+                        auto mg = (sp_copy.robot == "arm") ? g_arm_mg : g_scara_mg;
+                        if (!mg) return;
+                        geometry_msgs::msg::Pose t;
+                        t.position.x=sp_copy.x; t.position.y=sp_copy.y; t.position.z=sp_copy.z;
+                        t.orientation.x=sp_copy.qx; t.orientation.y=sp_copy.qy;
+                        t.orientation.z=sp_copy.qz; t.orientation.w=sp_copy.qw;
+                        mg->setPoseTarget(t);
+                        moveit::planning_interface::MoveGroupInterface::Plan p;
+                        if (mg->plan(p) == moveit::core::MoveItErrorCode::SUCCESS) {
+                            mg->execute(p);
+                            set_status("Angefahren: " + sp_copy.name);
+                        } else { set_status("Anfahren FAILED: " + sp_copy.name); }
+                        mg->clearPoseTargets();
+                    }).detach();
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Konfig ubernehmen")) {
+                    std::lock_guard<std::mutex> lk(g_poses_mutex);
+                    auto& sp = g_saved_poses[sel_pose_idx];
+                    auto mg = (sp.robot == "arm") ? g_arm_mg : g_scara_mg;
+                    if (mg) {
+                        sp.joints = mg->getCurrentJointValues();
+                        set_status("Konfig gespeichert: " + sp.name +
+                                " (" + std::to_string(sp.joints.size()) + " Joints)");
+                    }
+                }
+
+                // Elbow Flip nur für Arm
+                bool is_arm = false;
+                { std::lock_guard<std::mutex> lk(g_poses_mutex);
+                is_arm = (g_saved_poses[sel_pose_idx].robot == "arm"); }
+                if (is_arm) {
+                    ImGui::SameLine();
+                    if (ImGui::Button("Elbow Flip")) {
+                        std::thread([]{
+                            if (!g_arm_mg) return;
+                            auto jv = g_arm_mg->getCurrentJointValues();
+                            if (jv.size() >= 3) {
+                                // Joint 3 (Ellbogen) um 180° spiegeln
+                                jv[2] = jv[2] > 0 ? jv[2] - M_PI : jv[2] + M_PI;
+                                g_arm_mg->setJointValueTarget(jv);
+                                moveit::planning_interface::MoveGroupInterface::Plan p;
+                                if (g_arm_mg->plan(p) == moveit::core::MoveItErrorCode::SUCCESS)
+                                    g_arm_mg->execute(p);
+                                else set_status("Elbow Flip: keine Loesung");
+                            }
+                        }).detach();
+                    }
+                }
+
+                // Status: hat diese Pose schon eine Konfig?
+                { std::lock_guard<std::mutex> lk(g_poses_mutex);
+                auto& sp = g_saved_poses[sel_pose_idx];
+                if (sp.joints.empty())
+                    ImGui::TextColored(ImVec4(1,0.5f,0,1), "  Noch keine Konfig gespeichert");
+                else
+                    ImGui::TextColored(ImVec4(0,1,0,1), "  Konfig OK (%zu Joints)", sp.joints.size()); }
+
+                ImGui::EndDisabled();
+            } else {
+                ImGui::TextDisabled("Keine Posen geladen");
+            }
+        }
+
+        static char csv_path[256] = "";
+        static bool csv_path_init = false;
+        if (!csv_path_init) {
+            const char* home = getenv("HOME");
+            snprintf(csv_path, sizeof(csv_path), "%s/rod_ws/src/rod_hmi/rod_poses.csv",
+                    home ? home : "/tmp");
+            csv_path_init = true;
+        }
+
         ImGui::BeginDisabled(!enabled || g_saved_poses.empty());
         if (ImGui::Button("Sequenz ausführen")) std::thread(run_sequence).detach();
         ImGui::SameLine();
@@ -637,7 +795,15 @@ int main(int argc, char** argv)
             pose_counter=1; snprintf(pose_name_buf,sizeof(pose_name_buf),"Pose_1");
             set_status("Posen gelöscht"); }
         ImGui::SameLine();
-        if (ImGui::Button("Exportieren")) std::thread([]{ export_poses("/tmp/rod_poses.csv"); }).detach();
+        if (ImGui::Button("Exportieren")) std::thread([]{ export_poses(csv_path); }).detach();
+        ImGui::EndDisabled();
+
+        // Import bleibt immer aktiv:
+        ImGui::SetNextItemWidth(200);
+        ImGui::InputText("##csvpath", csv_path, sizeof(csv_path));
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!enabled);
+        if (ImGui::Button("Importieren")) std::thread([]{ import_poses(csv_path); }).detach();
         ImGui::EndDisabled();
 
         // Objekte Status
