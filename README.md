@@ -9,12 +9,11 @@ Simulation einer industriellen Roboterzelle mit zwei Robotern:
 - **6-DOF Knickarm** (kinematisch angelehnt an UR15) mit Saugnapf-Endeffektor
 - **SCARA** (4-DOF) mit Schraubwerkzeug
 
-**Usecase:** Batteriegehäuse-Montage  
-1. Knickarm greift Gehäuse von FB1 → legt in Fixiereinheit
-2. SCARA verschraubt Gehäuse
-3. Knickarm greift Deckel von FB2 → legt auf Gehäuse
-4. SCARA verschraubt Deckel (4 Schrauben)
-5. Knickarm transferiert fertige Assembly auf FB3
+**Usecase:** Toaster-Gehäuse-Montage  
+1. Knickarm greift Gehäuse von Förderband → legt in Fixiereinheit
+2. Knickarm greift Deckel → legt auf Gehäuse
+3. SCARA verschraubt Deckel
+4. Knickarm transferiert fertige Assembly auf Ausgangs-Förderband
 
 ---
 
@@ -29,7 +28,7 @@ Simulation einer industriellen Roboterzelle mit zwei Robotern:
 | `rod_scene` | Szenenobjekte als GLB-Meshes (Säulen, Fixiereinheit, Förderbänder, Werkstücke) | aktiv |
 | `rod_cell` | Kombinierte Launch Files für die gesamte Zelle | aktiv |
 | `rod_demo` | C++ Demo Scripts — vordefinierte Posen anfahren (Arm + SCARA) | aktiv |
-| `rod_hmi` | Dear ImGui HMI — TCP-Steuerung, Pose speichern/exportieren, Sequenz | aktiv |
+| `rod_hmi` | Dear ImGui HMI — TCP-Steuerung, Pose-Verwaltung, Sequenz, CSV Import/Export | aktiv |
 | `SolidWorks` | Originale SolidWorks-Exports (COLCON_IGNORE, nur Referenz) | Archiv |
 | `EasyBot` | Referenzprojekt vom Lektor (COLCON_IGNORE) | Referenz |
 
@@ -51,6 +50,7 @@ sudo apt install ros-jazzy-moveit ros-jazzy-ros-gz ros-jazzy-gz-ros2-control \
 mkdir -p ~/rod_ws/src
 cd ~/rod_ws/src
 git clone https://github.com/Raini20/ROD.git .
+git checkout pick_place
 ```
 
 ### Workspace bauen
@@ -80,18 +80,6 @@ Ein einziger Befehl öffnet das GUI und startet Gazebo + beide MoveGroups automa
 cd ~/rod_ws && source install/setup.bash
 ros2 run rod_hmi rod_hmi
 ```
-
-**Funktionen im HMI:**
-- Roboter-Auswahl (Arm / SCARA)
-- TCP-Steuerung mit X+/X-/Y+/Y-/Z+/Z- Buttons
-- Schrittweite per Slider einstellbar (0.5cm – 20cm)
-- TCP Rotation (Roll/Pitch/Yaw) — nur beim Arm eingeblendet
-- Joint Slider für absolute Gelenkswinkel (beide Roboter)
-- Aktionen: Pick/Place (Arm), Screw/Unscrew (SCARA) — als Platzhalter
-- Aktuelle TCP-Position anzeige
-- Pose speichern (mit Name)
-- Gespeicherte Sequenz ausführen
-- Posen exportieren als CSV (`/tmp/rod_poses.csv`)
 
 ### C – Beide Roboter mit MoveIt + Gazebo (manuell, 5 Terminals)
 
@@ -125,21 +113,7 @@ cd ~/rod_ws && source install/setup.bash
 ros2 launch scara_moveit moveit_rviz.launch.py
 ```
 
-### D – Demo Poses (vordefinierte Posen abfahren)
-
-Benötigt: Terminal C1 + C2 + C3 laufen bereits.
-
-```bash
-# Knickarm Demo
-cd ~/rod_ws && source install/setup.bash
-ros2 launch rod_demo arm_demo.launch.py
-
-# SCARA Demo
-cd ~/rod_ws && source install/setup.bash
-ros2 run rod_demo scara_demo
-```
-
-### E – Nur RViz (ohne Gazebo, für schnelles Testen)
+### D – Nur RViz (ohne Gazebo, für schnelles Testen)
 
 ```bash
 cd ~/rod_ws && source install/setup.bash
@@ -153,35 +127,87 @@ ros2 launch scara_moveit demo.launch.py
 
 ---
 
+## HMI – Bedienung
+
+Das HMI (`rod_hmi`) ist die primäre Schnittstelle zur Simulation. Es startet Gazebo und beide MoveGroups automatisch beim Start.
+
+### TCP-Steuerung
+- X+/X−/Y+/Y−/Z+/Z− Buttons für kartesische Bewegung
+- Schrittweite per Slider einstellbar (0.5 cm – 20 cm)
+- TCP Rotation Roll/Pitch/Yaw (nur Knickarm)
+
+### Gelenkswinkel (absolut)
+Slider zum manuellen Setzen von Zielwinkeln. Bewegung wird mit **"Joints anfahren"** ausgelöst.
+
+### Gelenkswinkel (live)
+Zweiter Slider-Satz der die **aktuelle Gelenkposition** in Echtzeit anzeigt (Aktualisierung alle 200 ms).  
+Slider ziehen und **loslassen** → Roboter fährt direkt auf diesen Winkel, ohne extra Button.
+
+### Pose-Verwaltung
+
+**Speichern:**  
+Name eingeben → Aktion wählen (Pick/Place bzw. Screw/Unscrew) → **"Speichern"**  
+Die aktuelle TCP-Pose und die Gelenkkonfiguration (Joint-Werte) werden gemeinsam gespeichert.
+
+**Gespeicherte Posen Tabelle:**  
+Zeigt alle Posen mit Index, Roboter, Name, Position, Aktion und Konfigurations-Status (OK / –).
+
+**Konfiguration wählen:**  
+Pose aus Dropdown wählen und:
+- **"Anfahren"** — fährt die Pose an (MoveIt sucht eine IK-Lösung)
+- **"Konfig übernehmen"** — speichert die aktuelle Gelenkkonfiguration für diese Pose
+- **"Elbow Flip"** — spiegelt Joint 3 um 180° (wechselt zwischen Elbow-Up / Elbow-Down)
+
+Grünes **"Konfig OK"** = Joint-Werte gespeichert → Sequenz verwendet diese exakte Konfiguration.
+
+### Sequenz
+**"Sequenz ausführen"** fährt alle gespeicherten Posen der Reihe nach ab.  
+Pro Schritt wird zuerst ein kartesischer Pfad versucht (direkte Linie). Falls dieser scheitert (fraction ≤ 0.5), wird mit den gespeicherten Joint-Werten geplant — so wird immer die korrekte Arm-Konfiguration verwendet.
+
+### CSV Import / Export
+
+**Format:**
+```
+# ROD Pose Export
+# robot, name, x, y, z, qx, qy, qz, qw, action, j0, j1, ...
+arm, Home, 0.150, 0.205, 0.755, 0.707, 0.0, 0.707, 0.0, None, 0.0, -0.5, 1.2, 0.0, 0.5, 0.0
+```
+
+- Pfad im Textfeld einstellbar (Standard: `~/rod_ws/src/rod_hmi/rod_poses.csv`)
+- **"Exportieren"** — schreibt alle aktuellen Posen inkl. Joint-Werte
+- **"Importieren"** — lädt Posen aus CSV, hängt sie an die bestehende Liste an
+- Rückwärtskompatibel: alte CSVs ohne Joint-Spalten werden korrekt eingelesen (Konfig = leer)
+
+---
+
 ## Status & TODOs
 
 ### ✅ Vollständig implementiert
 - 6-DOF Knickarm URDF mit Saugnapf-Endeffektor
-- SCARA URDF mit Endeffektor (Merle)
+- SCARA URDF mit Endeffektor
 - MoveIt2 Konfiguration für beide Roboter (SRDF, Kinematics, Controller)
 - Gazebo Harmonic — beide Roboter planbar und ausführbar in einer Simulation
 - Namespaced Controller Manager (`/arm`, `/scara`)
 - Zellenszene: Säulen, Fixiereinheit, Förderbänder, Werkstücke (GLB)
-- Demo Scripts — Knickarm + SCARA fahren Posen (Joint-Targets + Kartesisch mit Quaternionen)
-- Startskript — `ros2 run rod_hmi rod_hmi` startet alles automatisch
+- HMI startet alles automatisch (`ros2 run rod_hmi rod_hmi`)
+- TCP-Steuerung (Translation + Rotation)
+- Joint-Slider (absolut + live)
+- Pose speichern mit automatischer Joint-Konfiguration
+- Konfigurationsauswahl mit Anfahren / Konfig übernehmen / Elbow Flip
+- Sequenz ausführen mit kartesischem Pfad + Joint-Fallback
+- CSV Import + Export mit Joint-Werten, konfigurierbarer Pfad
 
-### 🟡 HMI — implementiert, aber Platzhalter
-- TCP Translation (X+/X-/Y+/Y-/Z+/Z-) ✅
-- TCP Rotation Roll/Pitch/Yaw (nur Arm) ✅
-- Joint Slider (absolute Gelenkswinkel, beide Roboter) ✅
-- Pose speichern mit Name + Aktion ✅
-- Sequenz ausführen (alle gespeicherten Posen der Reihe nach) ✅
-- Posen exportieren als CSV ✅
-- Pick / Place → **Platzhalter** — link_attacher noch nicht integriert
-- Screw / Unscrew → **Platzhalter** — SCARA joint_4 Rotation noch nicht implementiert
+### 🟡 Teilweise implementiert
+- Pick / Place → Greifer-Simulation aktiv, link_attacher noch nicht integriert
+- Screw / Unscrew → Platzhalter, SCARA joint_4 Rotation noch nicht implementiert
 
 ### ❌ Noch offen (Pflicht laut Angabe)
-- [ ] **Dokumentation als PDF** — Anwendungsfall, Pakete, Abhängigkeiten, Startanleitung
+- [ ] Vollautomatischer Ablauf (Knickarm + SCARA kombinierter Workflow)
+- [ ] Dokumentation als PDF
 
 ### 💡 Nice-to-Have
 - [ ] link_attacher Integration (echtes Pick & Place)
 - [ ] Schrauben-Simulation (SCARA joint_4 Rotation)
-- [ ] Vollautomatischer Ablauf (Knickarm + SCARA programmierter Workflow)
 - [ ] Schutzzaun in der Szene
 - [ ] Backup-Video der Simulation
 
@@ -191,6 +217,5 @@ ros2 launch scara_moveit demo.launch.py
 
 | Branch | Inhalt |
 |---|---|
-| `main` | Stabiler Stand — beide Roboter, Szene, MoveIt |
-| `demo_poses` | rod_demo C++ Package — vordefinierte Posen mit Quaternionen |
-| `hmi` | rod_hmi Dear ImGui HMI (in Entwicklung) |
+| `main` | Stabiler Basisstand — beide Roboter, Szene, MoveIt2 Konfiguration |
+| `pick_place` | Aktiver Entwicklungsbranch — HMI, Sequenz, CSV Import/Export, Pick & Place |

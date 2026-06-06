@@ -54,7 +54,11 @@ static std::atomic<bool> g_ros_running{false};
 static std::string g_status = "Starte ROS...";
 static std::mutex g_status_mutex;
 static std::vector<SavedPose> g_saved_poses;
+static int sel_pose_idx = 0;
 static std::mutex g_poses_mutex;
+static std::mutex g_live_jv_mutex;
+static float g_live_arm_jv[6]   = {};
+static float g_live_scara_jv[4] = {};
 
 static std::shared_ptr<moveit::planning_interface::MoveGroupInterface> g_arm_mg;
 static std::shared_ptr<moveit::planning_interface::MoveGroupInterface> g_scara_mg;
@@ -305,6 +309,7 @@ void save_current_pose(
         robot_name.c_str(), pose_name.c_str(), sp.x, sp.y, sp.z,
         action_to_string(action).c_str());
     std::lock_guard<std::mutex> lock(g_poses_mutex);
+    sp.joints = mg->getCurrentJointValues();
     g_saved_poses.push_back(sp);
     set_status("Pose gespeichert: " + pose_name + " [" + action_to_string(action) + "]");
 }
@@ -362,7 +367,7 @@ void run_sequence()
 // -----------------------------------------------------------------------
 void export_poses(const std::string& path) {
     std::ofstream f(path);
-    f << "# ROD Pose Export\n# robot, name, x, y, z, qx, qy, qz, qw, action\n";
+    f << "# ROD Pose Export\n# robot, name, x, y, z, qx, qy, qz, qw, action, j0, j1, ...\n";
     std::lock_guard<std::mutex> lock(g_poses_mutex);
     for (auto& sp : g_saved_poses) {
         f << sp.robot << ", " << sp.name << ", "
@@ -502,6 +507,26 @@ void ros_thread_func(int argc, char** argv)
     executor.add_node(scara_node);
     g_ros_running = true;
     set_status("Bereit!");
+
+     std::thread([](){
+        while (g_ros_running) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            if (g_arm_mg) {
+                auto jv = g_arm_mg->getCurrentJointValues();
+                std::lock_guard<std::mutex> lk(g_live_jv_mutex);
+                for (int i = 0; i < 6 && i < (int)jv.size(); i++)
+                    g_live_arm_jv[i] = (float)jv[i];
+            }
+            if (g_scara_mg) {
+                auto jv = g_scara_mg->getCurrentJointValues();
+                std::lock_guard<std::mutex> lk(g_live_jv_mutex);
+                for (int i = 0; i < 4 && i < (int)jv.size(); i++)
+                    g_live_scara_jv[i] = (float)jv[i];
+            }
+        }
+    }).detach();
+
+
     executor.spin();
     rclcpp::shutdown();
 }
@@ -679,20 +704,39 @@ int main(int argc, char** argv)
         ImGui::Separator();
 
         ImGui::Text("Gespeicherte Posen (%zu):", g_saved_poses.size());
-        ImGui::BeginChild("poses_list", ImVec2(0,100), true);
-        { std::lock_guard<std::mutex> lock(g_poses_mutex);
-          for (int i=0; i<(int)g_saved_poses.size(); i++) {
-              auto& sp=g_saved_poses[i];
-              ImGui::Text("[%d] [%s] %-12s  x=%6.3f y=%6.3f z=%6.3f  → %s",
-                  i+1, sp.robot.c_str(), sp.name.c_str(), sp.x, sp.y, sp.z,
-                  action_to_string(sp.action).c_str()); } }
+        ImGui::BeginChild("poses_list", ImVec2(0, 130), true);
+        if (ImGui::BeginTable("poses_table", 6,
+            ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit))
+        {
+            ImGui::TableSetupColumn("#",       ImGuiTableColumnFlags_WidthFixed, 24);
+            ImGui::TableSetupColumn("Robot",   ImGuiTableColumnFlags_WidthFixed, 45);
+            ImGui::TableSetupColumn("Name",    ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Position",ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Aktion",  ImGuiTableColumnFlags_WidthFixed, 60);
+            ImGui::TableSetupColumn("Konfig",  ImGuiTableColumnFlags_WidthFixed, 50);
+            ImGui::TableHeadersRow();
+            std::lock_guard<std::mutex> lock(g_poses_mutex);
+            for (int i = 0; i < (int)g_saved_poses.size(); i++) {
+                auto& sp = g_saved_poses[i];
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0); ImGui::Text("%d", i+1);
+                ImGui::TableSetColumnIndex(1); ImGui::TextDisabled("%s", sp.robot.c_str());
+                ImGui::TableSetColumnIndex(2); ImGui::Text("%s", sp.name.c_str());
+                ImGui::TableSetColumnIndex(3);
+                ImGui::Text("x=%5.3f y=%5.3f z=%5.3f", sp.x, sp.y, sp.z);
+                ImGui::TableSetColumnIndex(4); ImGui::Text("%s", action_to_string(sp.action).c_str());
+                ImGui::TableSetColumnIndex(5);
+                if (sp.joints.empty()) ImGui::TextColored(ImVec4(1,0.4f,0,1), "–");
+                else                   ImGui::TextColored(ImVec4(0,1,0,1),    "OK");
+            }
+            ImGui::EndTable();
+        }
         ImGui::EndChild();
 
         // Konfiguration wählen
         ImGui::Separator();
         ImGui::Text("Konfiguration wählen:");
 
-        static int sel_pose_idx = 0;
         {
             std::vector<std::string> names;
             { std::lock_guard<std::mutex> lk(g_poses_mutex);
@@ -787,6 +831,7 @@ int main(int argc, char** argv)
             csv_path_init = true;
         }
 
+
         ImGui::BeginDisabled(!enabled || g_saved_poses.empty());
         if (ImGui::Button("Sequenz ausführen")) std::thread(run_sequence).detach();
         ImGui::SameLine();
@@ -796,6 +841,17 @@ int main(int argc, char** argv)
             set_status("Posen gelöscht"); }
         ImGui::SameLine();
         if (ImGui::Button("Exportieren")) std::thread([]{ export_poses(csv_path); }).detach();
+        ImGui::SameLine();
+        if (ImGui::Button("Gewählte löschen")) {
+            std::lock_guard<std::mutex> lock(g_poses_mutex);
+            if (sel_pose_idx < (int)g_saved_poses.size()) {
+                std::string name = g_saved_poses[sel_pose_idx].name;
+                g_saved_poses.erase(g_saved_poses.begin() + sel_pose_idx);
+                if (sel_pose_idx >= (int)g_saved_poses.size() && sel_pose_idx > 0)
+                    sel_pose_idx--;
+                set_status("Gelöscht: " + name);
+            }
+        }
         ImGui::EndDisabled();
 
         // Import bleibt immer aktiv:
@@ -853,6 +909,69 @@ int main(int argc, char** argv)
                         g_scara_mg->execute(p); set_status("scara: Joints angefahren");
                     } else set_status("scara: Joints Planung fehlgeschlagen");
                 }).detach();
+            }
+        }
+        ImGui::EndDisabled();
+        
+        ImGui::Separator();
+        ImGui::Text("Gelenkswinkel (live)");
+        ImGui::BeginDisabled(!enabled);
+        {
+            std::lock_guard<std::mutex> lk(g_live_jv_mutex);
+            if (selected_robot == 0) {
+                const char* arm_names[] = {"J1","J2","J3","J4","J5","J6"};
+                static float live_arm_edit[6] = {};
+                static bool  live_arm_dragging[6] = {};
+                for (int i = 0; i < 6; i++) {
+                    if (!live_arm_dragging[i])
+                        live_arm_edit[i] = g_live_arm_jv[i];  // Display aktualisieren wenn nicht gezogen
+                    ImGui::SetNextItemWidth(300);
+                    std::string label = std::string(arm_names[i]) + "##live";
+                    ImGui::SliderFloat(label.c_str(), &live_arm_edit[i], -3.14159f, 3.14159f);
+                    live_arm_dragging[i] = ImGui::IsItemActive();
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        float val = live_arm_edit[i];
+                        int   idx = i;
+                        std::thread([val, idx]{
+                            if (!g_arm_mg) return;
+                            auto jv = g_arm_mg->getCurrentJointValues();
+                            if (idx < (int)jv.size()) jv[idx] = val;
+                            g_arm_mg->setJointValueTarget(jv);
+                            moveit::planning_interface::MoveGroupInterface::Plan p;
+                            if (g_arm_mg->plan(p) == moveit::core::MoveItErrorCode::SUCCESS)
+                                g_arm_mg->execute(p);
+                            else set_status("Live-Slider: Planung fehlgeschlagen");
+                        }).detach();
+                    }
+                }
+            } else {
+                const char* scara_names[] = {"J1","J2","J3 (lin)","J4"};
+                float limits_lo[] = {-3.14159f,-3.14159f,-0.4f,-3.14159f};
+                float limits_hi[] = { 3.14159f, 3.14159f, 0.0f, 3.14159f};
+                static float live_scara_edit[4] = {};
+                static bool  live_scara_dragging[4] = {};
+                for (int i = 0; i < 4; i++) {
+                    if (!live_scara_dragging[i])
+                        live_scara_edit[i] = g_live_scara_jv[i];
+                    ImGui::SetNextItemWidth(300);
+                    std::string label = std::string(scara_names[i]) + "##live";
+                    ImGui::SliderFloat(label.c_str(), &live_scara_edit[i], limits_lo[i], limits_hi[i]);
+                    live_scara_dragging[i] = ImGui::IsItemActive();
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        float val = live_scara_edit[i];
+                        int   idx = i;
+                        std::thread([val, idx]{
+                            if (!g_scara_mg) return;
+                            auto jv = g_scara_mg->getCurrentJointValues();
+                            if (idx < (int)jv.size()) jv[idx] = val;
+                            g_scara_mg->setJointValueTarget(jv);
+                            moveit::planning_interface::MoveGroupInterface::Plan p;
+                            if (g_scara_mg->plan(p) == moveit::core::MoveItErrorCode::SUCCESS)
+                                g_scara_mg->execute(p);
+                            else set_status("Live-Slider: Planung fehlgeschlagen");
+                        }).detach();
+                    }
+                }
             }
         }
         ImGui::EndDisabled();
