@@ -72,10 +72,18 @@ static std::mutex g_obj_mutex;
 static std::map<std::string, std::array<double,4>> g_object_orientations = {
     {"toaster_shell", {0.0, 0.0, 0.0, 1.0}},       // keine Rotation
     {"toaster_innen", {1.0, 0.0, 0.0, 0.0}},        // roll=PI (umgedreht)
+    {"schraube_1",    {1.0, 0.0, 0.0, 0.0}},
+    {"schraube_2",    {1.0, 0.0, 0.0, 0.0}},
+    {"schraube_3",    {1.0, 0.0, 0.0, 0.0}},
+    {"schraube_4",    {1.0, 0.0, 0.0, 0.0}},
 };
 static std::map<std::string, std::array<double,3>> g_object_positions = {
     {"toaster_shell", {-0.75, 0.45, 1.0}},
     {"toaster_innen", {0.0,   0.45, 1.168}},
+    {"schraube_1", { 0.090, 0.505, 1.168}},
+    {"schraube_2", {-0.090, 0.505, 1.168}},
+    {"schraube_3", { 0.090, 0.395, 1.168}},
+    {"schraube_4", {-0.090, 0.395, 1.168}},
 };
 static double g_off_rqx=0, g_off_rqy=0, g_off_rqz=0, g_off_rqw=1;
 

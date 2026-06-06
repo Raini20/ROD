@@ -72,6 +72,7 @@ def generate_launch_description():
     conveyor_mesh = os.path.join(scene_pkg, 'meshes', 'Conveyor.glb')
     toaster_shell_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterShell.glb')
     toaster_innen_mesh = os.path.join(scene_pkg, 'meshes', 'ToasterInnen.glb')
+    schraube_mesh = os.path.join(scene_pkg, 'meshes', 'Schraube.glb')
 
     return LaunchDescription([
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', gz_resource_path),
@@ -176,4 +177,16 @@ def generate_launch_description():
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'output_innen', '-string',
                         make_static_sdf('output_innen', toaster_innen_mesh, 0.0, -0.45, 1.0)]),
+        Node(package='ros_gz_sim', executable='create',
+            arguments=['-name', 'schraube_1', '-x',  '0.090', '-y', '0.505', '-z', '1.168', '-R', '3.14159', '-string',
+                        make_dynamic_sdf('schraube_1', schraube_mesh, 0.090, 0.505, 1.168)]),
+        Node(package='ros_gz_sim', executable='create',
+            arguments=['-name', 'schraube_2', '-x', '-0.090', '-y', '0.505', '-z', '1.168', '-R', '3.14159', '-string',
+                        make_dynamic_sdf('schraube_2', schraube_mesh, -0.090, 0.505, 1.168)]),
+        Node(package='ros_gz_sim', executable='create',
+            arguments=['-name', 'schraube_3', '-x',  '0.090', '-y', '0.395', '-z', '1.168', '-R', '3.14159', '-string',
+                        make_dynamic_sdf('schraube_3', schraube_mesh, 0.090, 0.395, 1.168)]),
+        Node(package='ros_gz_sim', executable='create',
+            arguments=['-name', 'schraube_4', '-x', '-0.090', '-y', '0.395', '-z', '1.168', '-R', '3.14159', '-string',
+                        make_dynamic_sdf('schraube_4', schraube_mesh, -0.090, 0.395, 1.168)]),
     ])
