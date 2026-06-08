@@ -45,7 +45,6 @@ def generate_launch_description():
     <model name="{name}">
         <static>true</static>
         <link name="link">
-        <collision name="collision"><geometry><box><size>0.2 0.15 0.1</size></box></geometry></collision>
         <visual name="visual"><geometry><mesh><uri>{mesh_path}</uri></mesh></geometry></visual>
         </link>
     </model>
@@ -53,19 +52,19 @@ def generate_launch_description():
 
     def make_static_sdf(name, mesh_path, x, y, z, roll=0, pitch=0, yaw=0):
         return f"""<?xml version="1.0"?>
-<sdf version="1.8">
-  <model name="{name}">
-    <static>true</static>
-    <link name="link">
-      <pose>{x} {y} {z} {roll} {pitch} {yaw}</pose>
-      <visual name="visual">
-        <geometry>
-          <mesh><uri>{mesh_path}</uri></mesh>
-        </geometry>
-      </visual>
-    </link>
-  </model>
-</sdf>"""
+    <sdf version="1.8">
+    <model name="{name}">
+        <static>true</static>
+        <link name="link">
+        <pose>{x} {y} {z} {roll} {pitch} {yaw}</pose>
+        <visual name="visual">
+            <geometry>
+            <mesh><uri>{mesh_path}</uri></mesh>
+            </geometry>
+        </visual>
+        </link>
+    </model>
+    </sdf>"""
 
     column_mesh = os.path.join(scene_pkg, 'meshes', 'column_robot_arm_6dof.glb')
     fixier_mesh = os.path.join(scene_pkg, 'meshes', 'FixiereinheitAssembly.glb')
