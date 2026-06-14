@@ -202,12 +202,18 @@ static void motion_rotation(
 
 static bool move_joints(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
-    std::vector<double> jv,const std::string& label)
+    std::vector<double> jv,const std::string& label,
+    double plan_time=5.0, double vel_scale=-1.0, double acc_scale=1.0)
 {
-    mg->setMaxVelocityScalingFactor(g_vel_pct/100.0);
+    double vs = (vel_scale>0) ? vel_scale : (g_vel_pct/100.0);
+    mg->setMaxVelocityScalingFactor(vs);
+    mg->setMaxAccelerationScalingFactor(acc_scale);
+    mg->setPlanningTime(plan_time);
     mg->setJointValueTarget(jv);
     moveit::planning_interface::MoveGroupInterface::Plan plan;
-    if(mg->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS){mg->execute(plan);return true;}
+    bool ok = (mg->plan(plan)==moveit::core::MoveItErrorCode::SUCCESS);
+    mg->setPlanningTime(5.0); // restore default
+    if(ok){mg->execute(plan);return true;}
     set_status(label+": Planung fehlgeschlagen"); return false;
 }
 
@@ -268,7 +274,7 @@ static void do_pick_impl(
         std::lock_guard<std::mutex> lk(g_obj_mx);
         for(auto&[name,pos]:g_obj_pos){
             double d=std::hypot(std::hypot(pos[0]-tx,pos[1]-ty),pos[2]-tz);
-            if(d<=0.30) cands.push_back({name,d,pos});
+            if(d<=0.50) cands.push_back({name,d,pos});
         }
     }
     if(cands.empty()){set_status("Kein Objekt im Greifradius (300 mm)");return;}
@@ -336,11 +342,19 @@ static void do_pick(std::shared_ptr<moveit::planning_interface::MoveGroupInterfa
 
 static void do_place() {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    // Freeze every picked object at its current tracked world position BEFORE stopping tracking
+    {
+        std::lock_guard<std::mutex> lk(g_obj_mx);
+        for(auto&po:g_picked){
+            auto& pos=g_obj_pos[po.name];
+            auto& ori=g_obj_ori[po.name];
+            gz_set_pose(po.name,pos[0],pos[1],pos[2],ori[0],ori[1],ori[2],ori[3]);
+        }
+    }
     g_picking=false;
     std::string names; for(auto&po:g_picked) names+=(names.empty()?"":",")+po.name;
     set_status("Abgesetzt: "+names); g_picked.clear();
 }
-
 static void reset_scene() {
     g_picking=false; g_picked.clear();
     std::lock_guard<std::mutex> lk(g_obj_mx);
@@ -361,7 +375,6 @@ static void do_screw_sequence(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
 {
     set_status("SCARA: Suche Schraube...");
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     auto jv_start=mg->getCurrentJointValues();
     if(jv_start.size()<4){set_status("SCARA: Zu wenige Joints");return;}
@@ -370,25 +383,24 @@ static void do_screw_sequence(
     // Pick exactly 1 object, prefer those named "schraube_*"
     do_pick_impl(mg,SCARA_OX,SCARA_OY,SCARA_OZ,"schraube",1);
     if(!g_picking){set_status("SCARA: Pick fehlgeschlagen");return;}
-    std::this_thread::sleep_for(std::chrono::milliseconds(400));
 
-    set_status("SCARA: 20 mm runter");
-    motion_cartesian(mg,0,0,-0.020,"scara");
+    set_status("SCARA: 28 mm runter");
+    motion_cartesian(mg,0,0,-0.028,"scara");
     if(g_estop) return;
 
-    set_status("SCARA: J4 dreht (2 Umdrehungen)");
-    { auto jv=mg->getCurrentJointValues(); jv[3]+=4.0*M_PI; move_joints(mg,jv,"SCARA J4"); }
+    set_status("SCARA: J4 dreht (3 Umdrehungen)");
+    { auto jv=mg->getCurrentJointValues(); jv[3]+=6.0*M_PI; move_joints(mg,jv,"SCARA J4",0.5,1.0,1.0); }
     if(g_estop) return;
 
     do_place();
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    set_status("SCARA: 20 mm rauf");
-    motion_cartesian(mg,0,0,0.020,"scara");
+    set_status("SCARA: 28 mm rauf");
+    motion_cartesian(mg,0,0,0.028,"scara");
     if(g_estop) return;
 
     set_status("SCARA: J4 Rueckfahrt");
-    { auto jv=mg->getCurrentJointValues(); jv[3]=j4_start; move_joints(mg,jv,"SCARA J4 back"); }
+    { auto jv=mg->getCurrentJointValues(); jv[3]=j4_start; move_joints(mg,jv,"SCARA J4 back",0.5,1.0,1.0); }
     set_status("SCARA: Schrauben abgeschlossen");
 }
 
