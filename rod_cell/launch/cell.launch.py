@@ -43,10 +43,8 @@ def generate_launch_description():
         return f"""<?xml version="1.0"?>
     <sdf version="1.8">
     <model name="{name}">
-        <static>false</static>
+        <static>true</static>
         <link name="link">
-        <pose>{x} {y} {z} {roll} {pitch} {yaw}</pose>
-        <inertial><mass>0.1</mass></inertial>
         <visual name="visual"><geometry><mesh><uri>{mesh_path}</uri></mesh></geometry></visual>
         </link>
     </model>
@@ -76,9 +74,8 @@ def generate_launch_description():
     schraube_mesh = os.path.join(scene_pkg, 'meshes', 'Schraube.glb')
 
     # Schutzzaun-Meshes
-    schutzzaun_mesh  = os.path.join(scene_pkg, 'meshes', 'Schutzzaun.glb')
-    zaun_tuer_mesh   = os.path.join(scene_pkg, 'meshes', 'Schutzzaun_Tuer.glb')
-
+    schutzzaun_mesh = os.path.join(scene_pkg, 'meshes', 'Schutzzaun.glb')
+    zaun_tuer_mesh  = os.path.join(scene_pkg, 'meshes', 'Schutzzaun_Tuer.glb')
 
     return LaunchDescription([
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', gz_resource_path),
@@ -197,6 +194,9 @@ def generate_launch_description():
                         make_dynamic_sdf('schraube_4', schraube_mesh, -0.090, 0.395, 1.168)]),
 
         # ── Schutzzaun ──────────────────────────────────────────────────────────
+        # Zelle: X -2.00..+2.50, Y -1.40..+1.60  (3.80m × 3.00m), Höhe 2.40m
+        # FB-Schlitze: 1.50m hoch frei, Oberteil 0.90m darüber geschlossen
+        # Tür: Westwand (x=-2.00), Y 0.00..0.80, geschlossen, separat
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'schutzzaun', '-string',
                         make_static_sdf('schutzzaun', schutzzaun_mesh, 0, 0, 0)]),
