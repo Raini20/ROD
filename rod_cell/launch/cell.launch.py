@@ -213,7 +213,7 @@ def generate_launch_description():
                         make_static_sdf('fence_north_mid', fence_nm_mesh, -0.375, 1.10, 1.60)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'fence_north_east', '-string',
-                        make_static_sdf('fence_north_east', fence_ne_mesh, 1.010, 1.10, 1.60)]),
+                        make_static_sdf('fence_north_east', fence_ne_mesh, 1.360, 1.10, 1.60)]),
 
         # Südwand (y=-0.90): 2 Segmente mit Lücke für FB3 (x=0.0)
         Node(package='ros_gz_sim', executable='create',
@@ -221,12 +221,12 @@ def generate_launch_description():
                         make_static_sdf('fence_south_west', fence_sw_mesh, -0.760, -0.90, 1.60)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'fence_south_east', '-string',
-                        make_static_sdf('fence_south_east', fence_se_mesh, 1.010, -0.90, 1.60)]),
+                        make_static_sdf('fence_south_east', fence_se_mesh, 1.360, -0.90, 1.60)]),
 
         # Ostwand (x=1.80): durchgehend
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'fence_east', '-string',
-                        make_static_sdf('fence_east', fence_e_mesh, 1.80, 0.10, 1.60)]),
+                        make_static_sdf('fence_east', fence_e_mesh, 2.50, 0.10, 1.60)]),
 
         # Westwand (x=-1.30): 2 Segmente mit Türöffnung (Y 0.00..0.80)
         Node(package='ros_gz_sim', executable='create',
@@ -244,13 +244,13 @@ def generate_launch_description():
         # Pfosten: 4 Ecken + 2 Türrahmen
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'post_ne', '-string',
-                        make_static_sdf('post_ne', fence_post_mesh, 1.80, 1.10, 1.60)]),
+                        make_static_sdf('post_ne', fence_post_mesh, 2.50, 1.10, 1.60)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'post_nw', '-string',
                         make_static_sdf('post_nw', fence_post_mesh, -1.30, 1.10, 1.60)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'post_se', '-string',
-                        make_static_sdf('post_se', fence_post_mesh, 1.80, -0.90, 1.60)]),
+                        make_static_sdf('post_se', fence_post_mesh, 2.50, -0.90, 1.60)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'post_sw', '-string',
                         make_static_sdf('post_sw', fence_post_mesh, -1.30, -0.90, 1.60)]),
