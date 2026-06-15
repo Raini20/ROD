@@ -1,3 +1,11 @@
 *.pyc
 __pycache__/
 EasyBot/
+
+# Colcon build artifacts
+build/
+install/
+log/
+
+# ImGui Laufzeit-Layout
+imgui.ini
