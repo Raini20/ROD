@@ -901,9 +901,9 @@ int main(int argc,char**argv) {
 
         sec("TCP-TRANSLATION");
         ImGui::SetNextItemWidth(col_lw-24);
-        ImGui::SliderFloat("##sxy",&step_xy,0.005f,0.20f,"XY %.3f m");
+        ImGui::SliderFloat("##sxy",&step_xy,0.001f,0.20f,"XY %.3f m");
         ImGui::SetNextItemWidth(col_lw-24);
-        ImGui::SliderFloat("##sz", &step_z, 0.005f,0.20f,"Z  %.3f m");
+        ImGui::SliderFloat("##sz", &step_z, 0.001f,0.20f,"Z  %.3f m");
         ImGui::Spacing();
 
         ImGui::BeginDisabled(!rdy);
