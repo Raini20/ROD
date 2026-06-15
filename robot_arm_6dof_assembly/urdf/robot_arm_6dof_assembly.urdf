@@ -292,12 +292,12 @@
     </joint>
     <joint name="joint_3">
       <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="position"><param name="initial_value">-1.5708</param></state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="joint_4">
       <command_interface name="position"><param name="min">-6.28</param><param name="max">6.28</param></command_interface>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="position"><param name="initial_value">-1.5708</param></state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="joint_5">
