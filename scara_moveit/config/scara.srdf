@@ -31,7 +31,7 @@
         <joint name="joint_4" value="0"/>
     </group_state>
     <group_state name="home" group="scara">
-        <joint name="joint_1" value="-1.5708"/>
+        <joint name="joint_1" value="1.0"/>
         <joint name="joint_2" value="1.5708"/>
         <joint name="joint_3" value="0"/>
         <joint name="joint_4" value="0"/>
