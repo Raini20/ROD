@@ -384,12 +384,14 @@ static void do_screw_sequence(
     do_pick_impl(mg,SCARA_OX,SCARA_OY,SCARA_OZ,"schraube",1);
     if(!g_picking){set_status("SCARA: Pick fehlgeschlagen");return;}
 
-    set_status("SCARA: 28 mm runter");
-    motion_cartesian(mg,0,0,-0.028,"scara");
-    if(g_estop) return;
-
-    set_status("SCARA: J4 dreht (3 Umdrehungen)");
-    { auto jv=mg->getCurrentJointValues(); jv[3]+=6.0*M_PI; move_joints(mg,jv,"SCARA J4",0.5,1.0,1.0); }
+    // Runter + Drehen gleichzeitig
+    set_status("SCARA: 28 mm runter + J4 dreht (3 Umdrehungen)");
+    {
+        auto jv = mg->getCurrentJointValues();
+        jv[2] -= 0.028;        // Z-Hub (Index ggf. anpassen!)
+        jv[3] += 6.0 * M_PI;  // 3 Umdrehungen
+        move_joints(mg, jv, "SCARA runter+drehen", 0.5, 1.0, 1.0);
+    }
     if(g_estop) return;
 
     do_place();
