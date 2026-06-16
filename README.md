@@ -72,7 +72,7 @@ ros2 run rod_hmi rod_hmi
 
 ## HMI – Bedienung
 
-Das HMI (`rod_hmi`) ist die primäre Schnittstelle zur Simulation. Es startet Gazebo und beide MoveGroups automatisch beim Start (~25 s Wartezeit).
+Das HMI (`rod_hmi`) ist die primäre Schnittstelle zur Simulation.
 
 ### Headerzeile
 
