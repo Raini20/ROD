@@ -92,7 +92,7 @@ Das HMI (`rod_hmi`) ist die primäre Schnittstelle zur Simulation.
 - TCP Rotation Roll/Pitch/Yaw (nur Knickarm), Schrittweite in Rad + Grad angezeigt
 - **Home** — fährt den gewählten Roboter in die im SRDF definierte `home`-Pose
 
-### PICK / PLACE / SCREW / UNSCREW / Scene Reset
+### PICK / PLACE / SCREW / Scene Reset
 
 Manuelle Buttons zum direkten Auslösen einer Aktion.
 
@@ -269,5 +269,5 @@ Stellt **Position und Orientierung** aller Objekte aus `k_init_pos` / `k_init_or
 
 ### 💡 Nice-to-Have
 
-- [ ] Maunelle Auswahl der verfügbaren Konfigurationen
+- [ ] Manuelle Auswahl der verfügbaren Konfigurationen
 - [ ] Umbenenn der Packages (`robot_arm_6dof_assembly` → `arm_description`)
