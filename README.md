@@ -267,6 +267,7 @@ Stellt **Position und Orientierung** aller Objekte aus `k_init_pos` / `k_init_or
 ### 💡 Nice-to-Have
 
 - [ ] Maunelle Auswahl der verfügbaren Konfigurationen
+- [ ] Umbenenn der Packages (`robot_arm_6dof_assembly` → `arm_description`)
 
 ---
 
