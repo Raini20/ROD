@@ -9,3 +9,5 @@ log/
 
 # ImGui Laufzeit-Layout
 imgui.ini
+*:Zone.Identifier
+imgui.ini

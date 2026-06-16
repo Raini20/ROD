@@ -1,10 +1,12 @@
 # ROD – Robot Cell Simulation
 
 ROS2 Jazzy | Gazebo Harmonic | MoveIt2  
-FH Technikum Wien – Kompetenzfeld Digital Manufacturing, Automation & Robotics
+FH Technikum Wien – Robotics Engineering
+[GitHub Link](https://github.com/Raini20/ROD/)
 
 ## Übersicht
 
+![ROD Cell](docs/cell_screenshot.jpeg)
 Simulation einer industriellen Roboterzelle mit zwei Robotern:
 - **6-DOF Knickarm** (kinematisch angelehnt an UR15) mit Saugnapf-Endeffektor
 - **SCARA** (4-DOF) mit Schraubwerkzeug
@@ -72,6 +74,7 @@ ros2 run rod_hmi rod_hmi
 
 ## HMI – Bedienung
 
+![HMI](docs/hmi_screenshot.jpeg)
 Das HMI (`rod_hmi`) ist die primäre Schnittstelle zur Simulation.
 
 ### Headerzeile
@@ -252,6 +255,8 @@ Stellt **Position und Orientierung** aller Objekte aus `k_init_pos` / `k_init_or
 - [x] CSV Import + Export mit Joint-Werten, konfigurierbarer Pfad
 - [x] Zeitgestempeltes Log-Panel mit Farbkodierung
 - [x] Quit-Button mit sauberem Shutdown
+- [x] Dokumentation als PDF
+- [x] Backup-Video der Simulation
 
 ### 🟡 Teilweise implementiert
 
@@ -260,20 +265,9 @@ Stellt **Position und Orientierung** aller Objekte aus `k_init_pos` / `k_init_or
 
 ### ❌ Noch offen
 
-- [ ] Dokumentation als PDF
-- [ ] Backup-Video der Simulation
 - [ ] TCP-Offset (Saugnapf ~150 mm off-center in Yaw)
 
 ### 💡 Nice-to-Have
 
 - [ ] Maunelle Auswahl der verfügbaren Konfigurationen
 - [ ] Umbenenn der Packages (`robot_arm_6dof_assembly` → `arm_description`)
-
----
-
-## Branches
-
-| Branch | Inhalt |
-|---|---|
-| `main` | Stabiler Basisstand — beide Roboter, Szene, MoveIt2 Konfiguration |
-| `pick_place` | Aktiver Entwicklungsbranch — HMI, Sequenz, CSV, Multi-Object Pick & Place |
