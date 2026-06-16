@@ -33,14 +33,13 @@
 // =============================================================================
 
 // Process step auto-executed after a pose is reached in run_sequence()
-enum class Action { None, Pick, Place, Screw, Unscrew, SceneReset };
+enum class Action { None, Pick, Place, Screw, SceneReset };
 
 static const char* action_str(Action a) {
     switch(a){
         case Action::Pick:       return "Pick";
         case Action::Place:      return "Place";
         case Action::Screw:      return "Screw";
-        case Action::Unscrew:    return "Unscrew";
         case Action::SceneReset: return "Reset";
         default:                 return "None";
     }
@@ -49,7 +48,6 @@ static Action action_from_str(const std::string& s) {
     if(s=="Pick")    return Action::Pick;
     if(s=="Place")   return Action::Place;
     if(s=="Screw")   return Action::Screw;
-    if(s=="Unscrew") return Action::Unscrew;
     if(s=="Reset")   return Action::SceneReset;
     return Action::None;
 }
@@ -592,8 +590,6 @@ static void run_sequence() {
                 case Action::Place:      do_place(); break;
                 case Action::Screw:      if(mg) do_screw_sequence(mg); break;
                 case Action::SceneReset: reset_scene(); break;
-                case Action::Unscrew:    set_status(sp.robot+": Unscrew (Platzhalter)");
-                                         std::this_thread::sleep_for(std::chrono::milliseconds(500)); break;
                 default: break;
             }
         }
@@ -894,15 +890,15 @@ int main(int argc,char**argv) {
         ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse;
 
     // Map between combo box index and Action enum.
-    // Actions differ per robot (arm: Pick/Place, SCARA: Screw/Unscrew).
+    // Actions differ per robot (arm: Pick/Place, SCARA: Screw/SceneReset).
     auto idx2act=[&](int i)->Action{
         if(robot==0){if(i==1)return Action::Pick;if(i==2)return Action::Place;if(i==3)return Action::SceneReset;}
-        else        {if(i==1)return Action::Screw;if(i==2)return Action::Unscrew;if(i==3)return Action::SceneReset;}
+        else        {if(i==1)return Action::Screw;if(i==2)return Action::SceneReset;}
         return Action::None;
     };
     auto act2idx=[&](Action a)->int{
         if(robot==0){if(a==Action::Pick)return 1;if(a==Action::Place)return 2;if(a==Action::SceneReset)return 3;}
-        else        {if(a==Action::Screw)return 1;if(a==Action::Unscrew)return 2;if(a==Action::SceneReset)return 3;}
+        else        {if(a==Action::Screw)return 1;if(a==Action::SceneReset)return 2;}
         return 0;
     };
 
@@ -1083,7 +1079,6 @@ int main(int argc,char**argv) {
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, {0.180f,0.349f,0.400f,1});
             if(ImGui::Button("SCREW",{90,34})){auto m=g_scara_mg;std::thread([m]{do_screw_sequence(m);}).detach();}
             ImGui::PopStyleColor(3); ImGui::SameLine();
-            if(ImGui::Button("UNSCREW",{90,34})) std::thread([]{set_status("SCARA: Unscrew (Platzhalter)");}).detach();
         }
         ImGui::SameLine(0,8);
         if(ImGui::Button("Home",{60,34})){auto m=mg();std::string rn=rname();std::thread([m,rn]{go_home(m,rn);}).detach();}
@@ -1107,7 +1102,7 @@ int main(int argc,char**argv) {
         ImGui::SameLine(0,6); ImGui::TextColored(COL_DIM,"Aktion"); ImGui::SameLine(0,4);
         ImGui::SetNextItemWidth(96);
         if(robot==0){const char*o[]={"--","Pick","Place","Reset"};if(sel_action>3)sel_action=0;ImGui::Combo("##act",&sel_action,o,4);}
-        else        {const char*o[]={"--","Screw","Unscrew","Reset"};if(sel_action>3)sel_action=0;ImGui::Combo("##act",&sel_action,o,4);}
+        else        {const char*o[]={"--","Screw","Reset"};if(sel_action>2)sel_action=0;ImGui::Combo("##act",&sel_action,o,3);}
         ImGui::SameLine(0,6);
         ImGui::BeginDisabled(!rdy);
         if(ImGui::Button("Speichern",{82,24})){
