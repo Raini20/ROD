@@ -1114,7 +1114,7 @@ int main(int argc,char**argv) {
             sel_action=0;
         }
         ImGui::SameLine(0,4);
-        if(ImGui::Button("Aendern",{64,24})){
+        if(ImGui::Button("Ändern",{64,24})){
             Action act=idx2act(sel_action);
             std::lock_guard<std::mutex> lk(g_poses_mx);
             if(g_sel<(int)g_poses.size()){
@@ -1274,17 +1274,17 @@ int main(int argc,char**argv) {
         // Row 2: library management
         ImGui::Spacing();
         ImGui::BeginDisabled(g_poses.empty());
-        if(ImGui::Button("Alle loeschen",{108,24})){
+        if(ImGui::Button("Alle löschen",{108,24})){
             std::lock_guard<std::mutex> lk(g_poses_mx); g_poses.clear();
-            snprintf(pose_name,sizeof(pose_name),"Pose_1"); set_status("Alle Posen geloescht");
+            snprintf(pose_name,sizeof(pose_name),"Pose_1"); set_status("Alle Posen gelöscht");
         }
         ImGui::SameLine(0,4);
-        if(ImGui::Button("Sel. loeschen",{102,24})){
+        if(ImGui::Button("Sel. löschen",{102,24})){
             std::lock_guard<std::mutex> lk(g_poses_mx);
             if(g_sel<(int)g_poses.size()){
                 std::string n=g_poses[g_sel].name; g_poses.erase(g_poses.begin()+g_sel);
                 if(g_sel>=(int)g_poses.size()&&g_sel>0) g_sel--;
-                set_status("Geloescht: "+n);
+                set_status("Gelöscht: "+n);
             }
         }
         ImGui::EndDisabled();
