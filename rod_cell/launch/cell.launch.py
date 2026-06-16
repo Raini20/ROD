@@ -6,6 +6,10 @@ from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, Tim
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
+# Cell launch file: spawns both robots (arm + SCARA) into a shared Gazebo
+# instance with isolated namespaces (/arm, /scara), loads all scene objects
+# (conveyors, toaster parts, screws, safety fence) and starts the controllers.
+
 def generate_launch_description():
     arm_pkg = get_package_share_directory('robot_arm_6dof_assembly')
     scara_pkg = get_package_share_directory('scara_4')
@@ -15,13 +19,18 @@ def generate_launch_description():
     arm_controller_joints_config = os.path.join(arm_pkg, 'config', 'arm_controller_joints.yaml')
     scara_controller_joints_config = os.path.join(scara_pkg, 'config', 'scara_controller_joints.yaml')
 
+    # Load URDFs and substitute SolidWorks-exporter placeholder "$(find <pkg>)"
+    # with the real install-time share path.
     with open(os.path.join(arm_pkg, 'urdf', 'robot_arm_6dof_assembly.urdf'), 'r') as f:
         arm_description = f.read().replace('$(find robot_arm_6dof_assembly)', arm_pkg)
 
     with open(os.path.join(scara_pkg, 'urdf', 'SCARA_4.urdf'), 'r') as f:
         scara_description = f.read().replace('$(find scara_4)', scara_pkg)
 
-    # Namespace in gz_ros2_control Plugin injizieren
+    # Inject ROS namespace into the gz_ros2_control plugin tag via regex.
+    # The URDF exporter does not support namespaces natively, so the <ros><namespace>
+    # tag is inserted at runtime. This ensures each robot's controller_manager
+    # runs under /arm or /scara and their topics don't collide.
     arm_description = re.sub(
         r'(name="gz_ros2_control::GazeboSimROS2ControlPlugin">)',
         r'\1\n      <ros><namespace>/arm</namespace></ros>',
@@ -33,12 +42,17 @@ def generate_launch_description():
         scara_description
     )
 
+    # Tell Gazebo where to find meshes and resources for both robots and the scene.
     gz_resource_path = ':'.join([
         os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'robot_arm_6dof_assembly', 'share'),
         os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'scara_4', 'share'),
         os.path.join(os.path.expanduser('~'), 'rod_ws', 'install', 'rod_scene', 'share'),
     ])
 
+    # Dynamic objects (toaster parts, screws): no <collision> geometry so MoveIt
+    # planning scene ignores them. World pose is set via -x -y -z spawn args
+    # (NOT inside the SDF <pose> tag) — required for correct world-frame placement.
+    # Position is tracked and updated by the HMI pick&place logic.
     def make_dynamic_sdf(name, mesh_path, x, y, z, roll=0, pitch=0, yaw=0):
         return f"""<?xml version="1.0"?>
     <sdf version="1.8">
@@ -50,6 +64,8 @@ def generate_launch_description():
     </model>
     </sdf>"""
 
+    # Static scene objects (columns, conveyors, fence): pose embedded in SDF.
+    # These never move so no runtime tracking needed.
     def make_static_sdf(name, mesh_path, x, y, z, roll=0, pitch=0, yaw=0):
         return f"""<?xml version="1.0"?>
     <sdf version="1.8">
@@ -123,7 +139,8 @@ def generate_launch_description():
                        '-x', '1.0', '-y', '0.0', '-z', '1.0'],
         ),
 
-        # Controller (mit Delay damit Gazebo fertig ist)
+        # Delay controller spawning by 8s to ensure Gazebo and ros2_control are
+        # fully initialised before the spawner connects.
         TimerAction(period=8.0, actions=[
             Node(
                 package='controller_manager', executable='spawner',
@@ -149,7 +166,7 @@ def generate_launch_description():
             ),
         ]),
 
-        # Szenenobjekte
+        # Scene objects: columns at robot base positions, fixation unit, conveyors.
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'column_arm', '-string',
                         make_static_sdf('column_arm', column_mesh, -0.75, 0, 0, 1.5708, 0, 0)]),
@@ -168,18 +185,15 @@ def generate_launch_description():
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'fb3', '-string',
                         make_static_sdf('fb3', conveyor_mesh, 0, -0.3, 0, 1.5708, 0, 3.14159)]),
+        # Workpieces: toaster shell + inner part + 4 screws at calculated positions
+        # based on the toaster hole pattern. Spawned as dynamic objects (no collision).
+        # Positions must match k_init_pos in rod_hmi.cpp exactly.
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'toaster_shell', '-x', '-0.75', '-y', '0.45', '-z', '1.0', '-string',
                         make_dynamic_sdf('toaster_shell', toaster_shell_mesh, -0.75, 0.45, 1.0)]),
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'toaster_innen', '-x', '0.0', '-y', '0.45', '-z', '1.168', '-R', '3.14159', '-string',
                         make_dynamic_sdf('toaster_innen', toaster_innen_mesh, 0.0, 0.45, 1.168, 3.14159, 0, 0)]),
-        #Node(package='ros_gz_sim', executable='create',
-        #     arguments=['-name', 'output_shell', '-string',
-        #                make_static_sdf('output_shell', toaster_shell_mesh, 0.0, -0.45, 1.0)]),
-        #Node(package='ros_gz_sim', executable='create',
-        #     arguments=['-name', 'output_innen', '-string',
-        #                make_static_sdf('output_innen', toaster_innen_mesh, 0.0, -0.45, 1.0)]),
         Node(package='ros_gz_sim', executable='create',
             arguments=['-name', 'schraube_1', '-x',  '0.090', '-y', '0.505', '-z', '1.168', '-R', '3.14159', '-string',
                         make_dynamic_sdf('schraube_1', schraube_mesh, 0.090, 0.505, 1.168)]),
@@ -192,11 +206,9 @@ def generate_launch_description():
         Node(package='ros_gz_sim', executable='create',
             arguments=['-name', 'schraube_4', '-x', '-0.090', '-y', '0.395', '-z', '1.168', '-R', '3.14159', '-string',
                         make_dynamic_sdf('schraube_4', schraube_mesh, -0.090, 0.395, 1.168)]),
-
-        # ── Schutzzaun ──────────────────────────────────────────────────────────
-        # Zelle: X -2.00..+2.50, Y -1.40..+1.60  (3.80m × 3.00m), Höhe 2.40m
-        # FB-Schlitze: 1.50m hoch frei, Oberteil 0.90m darüber geschlossen
-        # Tür: Westwand (x=-2.00), Y 0.00..0.80, geschlossen, separat
+        # Safety fence: cell dimensions X -2.00..+2.50, Y -1.40..+1.60 (3.80m x 3.00m), height 2.40m
+        # Conveyor slots: 1.50m open at bottom, 0.90m closed panel above
+        # Door: west wall (x=-2.00), Y 0.00..0.80, closed, spawned as separate mesh
         Node(package='ros_gz_sim', executable='create',
              arguments=['-name', 'schutzzaun', '-string',
                         make_static_sdf('schutzzaun', schutzzaun_mesh, 0, 0, 0)]),
