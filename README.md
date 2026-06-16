@@ -184,7 +184,7 @@ Scrollt automatisch auf den neuesten Eintrag.
 
 ## Multi-Object Pick
 
-Der Pick-Mechanismus greift automatisch alle Objekte innerhalb eines **300 mm Radius** um den TCP:
+Der Pick-Mechanismus greift automatisch alle Objekte innerhalb eines **350 mm Radius** um den TCP:
 
 | Schritt | Gegriffene Objekte |
 |---|---|
@@ -229,8 +229,6 @@ Stellt **Position und Orientierung** aller Objekte aus `k_init_pos` / `k_init_or
 
 ## Status & TODOs
 
-### ✅ Vollständig implementiert
-
 - [x] 6-DOF Knickarm URDF + SCARA URDF mit Endeffektoren ⚠️ *TCP-Offset (Saugnapf) in Yaw-Achse nicht korrekt*
 - [x] MoveIt2 Konfiguration für beide Roboter
 - [x] Gazebo Harmonic — beide Roboter in einer Simulation, namespaced Controller
@@ -257,17 +255,5 @@ Stellt **Position und Orientierung** aller Objekte aus `k_init_pos` / `k_init_or
 - [x] Quit-Button mit sauberem Shutdown
 - [x] Dokumentation als PDF
 - [x] Backup-Video der Simulation
-
-### 🟡 Teilweise implementiert
-
 - [x] Pick/Place — Greifer-Simulation aktiv (visuelle Verfolgung via Gazebo set_pose), kein physischer `link_attacher`
 - [x] Screw — SCARA J4-Rotation animiert, aber keine Physik-Interaktion mit der Schraube
-
-### ❌ Noch offen
-
-- [ ] TCP-Offset (Saugnapf ~150 mm off-center in Yaw)
-
-### 💡 Nice-to-Have
-
-- [ ] Manuelle Auswahl der verfügbaren Konfigurationen
-- [ ] Umbenenn der Packages (`robot_arm_6dof_assembly` → `arm_description`)
