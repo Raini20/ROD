@@ -32,6 +32,7 @@
 // DATA TYPES
 // =============================================================================
 
+// Process step auto-executed after a pose is reached in run_sequence()
 enum class Action { None, Pick, Place, Screw, Unscrew, SceneReset };
 
 static const char* action_str(Action a) {
@@ -53,6 +54,8 @@ static Action action_from_str(const std::string& s) {
     return Action::None;
 }
 
+// joints: jointvalues at save-time. If set, sequence uses setJointValueTarget()
+// to guarantee same IK config (elbow up/down) as when teaching.
 struct SavedPose {
     std::string name, robot;
     double x{},y{},z{},qx{},qy{},qz{},qw{1};
@@ -60,6 +63,8 @@ struct SavedPose {
     std::vector<double> joints;
 };
 
+// Pose offset relative to TCP at pick-time, used to "stick" object to gripper
+// while tracking (see do_pick_impl).
 struct PickedObj {
     std::string name;
     double off_x{},off_y{},off_z{};
@@ -70,27 +75,32 @@ struct PickedObj {
 // GLOBAL STATE
 // =============================================================================
 
+// MoveGroup handles + ready flags, set once ros_thread() connects to move_group
 static std::shared_ptr<moveit::planning_interface::MoveGroupInterface> g_arm_mg;
 static std::shared_ptr<moveit::planning_interface::MoveGroupInterface> g_scara_mg;
 static std::atomic<bool> g_arm_ready{false};
 static std::atomic<bool> g_scara_ready{false};
 static std::atomic<bool> g_ros_running{false};
 
+// Status line + timestamped log history (see set_status)
 static std::string             g_status = "Starte ROS...";
 static std::mutex              g_status_mx;
 static std::deque<std::string> g_log;
 static std::mutex              g_log_mx;
 static const int               LOG_MAX = 40;
 
+// Pose library; g_sel = currently selected index in UI
 static std::vector<SavedPose> g_poses;
 static std::mutex             g_poses_mx;
 static int                    g_sel = 0;
 
+// Live joint values, polled every 200ms by background thread (ros_thread)
 static float      g_jv_arm[6]   = {};
 static float      g_jv_scara[4] = {};
 static std::mutex g_jv_mx;
 
-// World-frame initial positions/orientations matching cell.launch.py exactly
+// Initial world-frame object poses - MUST match spawn args in cell.launch.py.
+// Used as reference for Scene Reset.
 static const std::map<std::string,std::array<double,3>> k_init_pos = {
     {"toaster_shell",{-0.75, 0.45, 1.000}},
     {"toaster_innen",{ 0.00, 0.45, 1.168}},
@@ -107,6 +117,8 @@ static const std::map<std::string,std::array<double,4>> k_init_ori = {
     {"schraube_3",   {1.0,0.0,0.0,0.0}},
     {"schraube_4",   {1.0,0.0,0.0,0.0}},
 };
+// Live-tracked object poses (start = k_init_*), updated during pick&place.
+// g_picked = objects currently held by active robot.
 static gz::transport::Node                         g_gz;
 static std::atomic<bool>                           g_picking{false};
 static std::mutex                                  g_obj_mx;
@@ -114,11 +126,12 @@ static std::map<std::string,std::array<double,3>>  g_obj_pos = k_init_pos;
 static std::map<std::string,std::array<double,4>>  g_obj_ori = k_init_ori;
 static std::vector<PickedObj>                      g_picked;
 
-// Robot world-frame base offsets (from cell.launch.py -x -y -z args)
+// Robot base offsets in world frame (= -x -y -z spawn args in cell.launch.py),
+// used to convert TCP-relative pick radius to world coords.
 static constexpr double ARM_OX=-0.75, ARM_OY=0.0, ARM_OZ=1.0;
 static constexpr double SCARA_OX=1.00, SCARA_OY=0.0, SCARA_OZ=1.0;
 
-// Motion/sequence control
+// Sequence control flags (pause/stop/loop/e-stop) + global velocity scaling
 static std::atomic<bool>  g_estop{false};
 static std::atomic<bool>  g_seq_running{false};
 static std::atomic<bool>  g_seq_paused{false};
@@ -132,6 +145,8 @@ static float              g_vel_pct = 30.0f;
 // UTILITIES
 // =============================================================================
 
+// Central status/log function: updates status bar, appends timestamped log
+// entry (max LOG_MAX, FIFO), mirrors to RCLCPP_INFO
 static void set_status(const std::string& s) {
     {std::lock_guard<std::mutex> lk(g_status_mx); g_status=s;}
     {
@@ -144,6 +159,8 @@ static void set_status(const std::string& s) {
     RCLCPP_INFO(rclcpp::get_logger("rod_hmi"),"%s",s.c_str());
 }
 
+// read_file: load URDF/SRDF as string
+// replace_all: substitute "$(find <pkg>)" placeholder with real share path
 static std::string read_file(const std::string& p)
 { std::ifstream f(p); std::stringstream ss; ss<<f.rdbuf(); return ss.str(); }
 
@@ -156,6 +173,9 @@ static std::string replace_all(std::string s,const std::string& f,const std::str
 // GZ TRANSPORT
 // =============================================================================
 
+// Sends a Gazebo "set_pose" service request to teleport an object to the given
+// world-frame pose. Used for Pick&Place object tracking and Scene Reset.
+// Fire-and-forget: result/rep are required by the API but not checked here.
 static void gz_set_pose(const std::string& name,double x,double y,double z,
                         double qx=0,double qy=0,double qz=0,double qw=1) {
     gz::msgs::Pose req; gz::msgs::Boolean rep; bool result;
@@ -170,6 +190,9 @@ static void gz_set_pose(const std::string& name,double x,double y,double z,
 // MOTION
 // =============================================================================
 
+// Moves the TCP by a relative cartesian offset (dx,dy,dz) in the planning frame.
+// Uses computeCartesianPath so the robot keeps its current IK configuration
+// (no elbow flip). Only executes if at least 80% of the path is valid.
 static void motion_cartesian(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     double dx,double dy,double dz,const std::string& rn)
@@ -183,6 +206,9 @@ static void motion_cartesian(
     else     {set_status(rn+": Pfad nicht moeglich ("+std::to_string((int)(f*100))+"%)"); }
 }
 
+// Rotates the TCP in place by relative roll/pitch/yaw (dr,dp,dy), applied as
+// a quaternion delta (qw,qxi,qyi,qzi) multiplied onto the current orientation.
+// Position stays fixed; only orientation changes. Cartesian path as above.
 static void motion_rotation(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     double dr,double dp,double dy,const std::string& rn)
@@ -200,6 +226,10 @@ static void motion_rotation(
     else     {set_status(rn+": Rotation nicht moeglich");}
 }
 
+// Plans and executes a joint-space target. vel_scale/acc_scale <=0 fall back
+// to g_vel_pct / full acceleration. plan_time is temporarily raised for harder
+// targets (e.g. screw sequence) and reset to the 5s default afterwards.
+// Returns false (and logs) if planning fails.
 static bool move_joints(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     std::vector<double> jv,const std::string& label,
@@ -221,6 +251,9 @@ static bool move_joints(
 // E-STOP / STOP
 // =============================================================================
 
+// Immediate emergency stop: halts both robots, cancels any active pick and
+// clears tracked objects. Sequence loop checks g_seq_stop_req/g_estop and
+// aborts on the next iteration.
 static void trigger_estop() {
     g_estop=true; g_seq_stop_req=true; g_seq_paused=false;
     g_picking=false; g_picked.clear();
@@ -229,6 +262,8 @@ static void trigger_estop() {
     set_status("!!! E-STOP AKTIVIERT !!!");
 }
 
+// Graceful stop: halts both robots and signals the running sequence to stop
+// (no E-Stop flag, sequence can be restarted afterwards).
 static void trigger_stop() {
     g_seq_stop_req=true; g_seq_paused=false;
     if(g_arm_mg)   try{g_arm_mg->stop();}   catch(...){}
@@ -240,6 +275,7 @@ static void trigger_stop() {
 // HOME
 // =============================================================================
 
+// Drives the given robot to its "home" named target (defined in MoveIt SRDF).
 static void go_home(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
                     const std::string& rn)
 {
@@ -257,6 +293,9 @@ static void go_home(std::shared_ptr<moveit::planning_interface::MoveGroupInterfa
 //   max_count     : maximum number of objects to grab (1 = single pick for screw)
 // =============================================================================
 
+// Core pick logic for both robots. Finds objects near the TCP, picks up to
+// max_count of them, and starts a background thread that keeps moving the
+// picked objects with the TCP until do_place()/E-Stop ends tracking.
 static void do_pick_impl(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
     double bx,double by,double bz,
@@ -265,6 +304,7 @@ static void do_pick_impl(
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     auto tcp=mg->getCurrentPose().pose;
+    // Convert TCP from robot-relative to world frame using base offset (bx,by,bz)
     double tx=tcp.position.x+bx, ty=tcp.position.y+by, tz=tcp.position.z+bz;
 
     // Collect candidates within radius, sort (preferred first, then by distance)
@@ -287,7 +327,9 @@ static void do_pick_impl(
     });
     if((int)cands.size()>max_count) cands.resize(max_count);
 
-    // Compute TCP-relative offsets for each candidate
+    // Compute TCP-relative offsets for each candidate: rotate world-frame
+    // delta into TCP frame using the inverse TCP orientation (iqx/iqy/iqz/iqw),
+    // so the object keeps its relative pose while the TCP moves/rotates later.
     double tqx=tcp.orientation.x,tqy=tcp.orientation.y,tqz=tcp.orientation.z,tqw=tcp.orientation.w;
     double iqx=-tqx,iqy=-tqy,iqz=-tqz,iqw=tqw;
     std::vector<PickedObj> picked;
@@ -312,6 +354,10 @@ static void do_pick_impl(
     std::string names; for(auto&po:picked) names+=(names.empty()?"":",")+po.name;
     set_status("Greife: "+names);
 
+    // Tracking thread: every 80ms, re-apply each picked object's stored offset
+    // to the robot's *current* TCP pose (forward-rotated by current TCP
+    // orientation), so the object visually follows the gripper in Gazebo.
+    // Stops when g_picking is cleared (by do_place() or E-Stop).
     std::thread([mg,bx,by,bz](){
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         while(g_picking&&mg){
@@ -340,6 +386,9 @@ static void do_pick_impl(
 static void do_pick(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
 { do_pick_impl(mg,ARM_OX,ARM_OY,ARM_OZ); }
 
+// Stops object tracking. Before that, "freeze" every picked object at its
+// last tracked world pose via gz_set_pose - otherwise Gazebo would keep the
+// object at the position from before tracking started.
 static void do_place() {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     // Freeze every picked object at its current tracked world position BEFORE stopping tracking
@@ -355,6 +404,9 @@ static void do_place() {
     std::string names; for(auto&po:g_picked) names+=(names.empty()?"":",")+po.name;
     set_status("Abgesetzt: "+names); g_picked.clear();
 }
+
+// Restores all scene objects to their initial world pose (k_init_pos/k_init_ori),
+// cancelling any active pick. Used between sequence loops / after a demo run.
 static void reset_scene() {
     g_picking=false; g_picked.clear();
     std::lock_guard<std::mutex> lk(g_obj_mx);
@@ -371,11 +423,14 @@ static void reset_scene() {
 //   Picks exactly ONE object, preferring "schraube_*" by name
 // =============================================================================
 
+// Full screw cycle: pick one screw, drive down while rotating J4 ("screwing in"),
+// release, retract, and rotate J4 back to its starting angle.
 static void do_screw_sequence(
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg)
 {
     set_status("SCARA: Suche Schraube...");
 
+    // Remember J4 start angle so it can be restored after the screwing rotation
     auto jv_start=mg->getCurrentJointValues();
     if(jv_start.size()<4){set_status("SCARA: Zu wenige Joints");return;}
     double j4_start=jv_start[3];
@@ -384,23 +439,27 @@ static void do_screw_sequence(
     do_pick_impl(mg,SCARA_OX,SCARA_OY,SCARA_OZ,"schraube",1);
     if(!g_picking){set_status("SCARA: Pick fehlgeschlagen");return;}
 
-    // Runter + Drehen gleichzeitig
-    set_status("SCARA: 28 mm runter + J4 dreht (3 Umdrehungen)");
+    // Combined joint move: lower Z (J3) and spin J4 by 3 full turns at once,
+    // so the screw visually "spins in" while descending.
+    set_status("SCARA: 25 mm runter + J4 dreht (3 Umdrehungen)");
     {
         auto jv = mg->getCurrentJointValues();
-        jv[2] -= 0.028;        // Z-Hub (Index ggf. anpassen!)
+        jv[2] -= 0.025;        // Z-Hub (Index ggf. anpassen!)
         jv[3] += 6.0 * M_PI;  // 3 Umdrehungen
         move_joints(mg, jv, "SCARA runter+drehen", 0.5, 1.0, 1.0);
     }
     if(g_estop) return;
 
+    // Release screw (stops object tracking, freezes it at current pose)
     do_place();
     //std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    set_status("SCARA: 28 mm rauf");
-    motion_cartesian(mg,0,0,0.028,"scara");
+    // Retract tool away from the screw
+    set_status("SCARA: 25 mm rauf");
+    motion_cartesian(mg,0,0,0.025,"scara");
     if(g_estop) return;
 
+    // Undo the 3 turns from J4 so the next screw starts from the same angle
     set_status("SCARA: J4 Rueckfahrt");
     { auto jv=mg->getCurrentJointValues(); jv[3]=j4_start; move_joints(mg,jv,"SCARA J4 back",0.5,1.0,1.0); }
     set_status("SCARA: Schrauben abgeschlossen");
@@ -410,6 +469,8 @@ static void do_screw_sequence(
 // POSE MANAGEMENT
 // =============================================================================
 
+// Saves the robot's current TCP pose + joint values + chosen action as a new
+// entry in the pose library (g_poses).
 static void save_pose(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> mg,
                       const std::string& robot,const std::string& name,Action action)
 {
@@ -422,6 +483,7 @@ static void save_pose(std::shared_ptr<moveit::planning_interface::MoveGroupInter
     set_status("Gespeichert: "+name+"  ["+action_str(action)+"]");
 }
 
+// Writes the entire pose library to a CSV file (robot,name,xyz,quat,action,joints...)
 static void export_poses(const std::string& path) {
     std::ofstream f(path);
     f<<"# ROD Pose Export\n# robot,name,x,y,z,qx,qy,qz,qw,action,j0,...\n";
@@ -435,6 +497,9 @@ static void export_poses(const std::string& path) {
     set_status("Exportiert: "+path);
 }
 
+// Reads a CSV pose file and appends the entries to g_poses. Lines starting with
+// '#' are skipped (comments/header). Backwards-compatible with older CSVs that
+// have no action column (cols.size()>=10) or no joint columns (cols.size()==9).
 static void import_poses(const std::string& path) {
     std::ifstream f(path);
     if(!f.is_open()){set_status("Import fehlgeschlagen: "+path);return;}
@@ -469,17 +534,21 @@ static void import_poses(const std::string& path) {
 // SEQUENCE (with Pause / Stop / Loop)
 // =============================================================================
 
+// Runs the pose library as a sequence. Supports pause/stop/loop and E-Stop.
+// Motion strategy per pose: joint-space (if joints saved) -> cartesian path
+// (if fraction > 0.5) -> PTP fallback. Action is executed after each move.
 static void run_sequence() {
     g_seq_running=true; g_seq_paused=false; g_seq_stop_req=false; g_seq_count=0;
 
     do {
+        // Copy pose list at loop start so UI edits mid-run don't affect current cycle
         g_seq_count++;
         std::vector<SavedPose> seq;
         {std::lock_guard<std::mutex> lk(g_poses_mx); seq=g_poses;}
         set_status("Sequenz (x"+std::to_string(g_seq_count.load())+"): "+std::to_string(seq.size())+" Posen");
 
         for(size_t i=0;i<seq.size();i++){
-            // Check stop/E-Stop
+            // Check abort conditions before each step and after pause-wait
             if(g_seq_stop_req||g_estop){
                 g_seq_step=-1; g_seq_running=false;
                 set_status("Sequenz gestoppt"); return;
@@ -492,11 +561,14 @@ static void run_sequence() {
                 set_status("Sequenz gestoppt"); return;
             }
 
+            // Highlight current step in pose library table (see SEQUENZ UI section)
             g_seq_step=(int)i;
             auto&sp=seq[i]; auto mg=(sp.robot=="arm")?g_arm_mg:g_scara_mg;
             if(!mg) continue;
             set_status("Sequenz "+std::to_string(i+1)+"/"+std::to_string(seq.size())+": "+sp.name);
 
+            // 1. Try joint-space move (preserves IK config), 2. cartesian path,
+            // 3. PTP fallback via setPoseTarget
             bool ok=false;
             if(!sp.joints.empty()) ok=move_joints(mg,sp.joints,sp.name);
             if(!ok){
@@ -525,6 +597,7 @@ static void run_sequence() {
                 default: break;
             }
         }
+    // Loop mode: restart from first pose until stop/E-Stop
     } while(g_seq_loop.load()&&!g_seq_stop_req&&!g_estop);
 
     g_seq_step=-1; g_seq_running=false;
@@ -537,9 +610,13 @@ static void run_sequence() {
 // ROS THREAD
 // =============================================================================
 
+// Launches Gazebo, MoveIt move_group nodes and connects both MoveGroupInterfaces.
+// Runs in a detached thread so the ImGui window can open immediately.
+// Startup sequence: cell.launch (15s) -> arm move_group (5s) -> scara move_group (5s)
 static void ros_thread(int argc,char**argv) {
     rclcpp::init(argc,argv);
     set_status("Starte Simulation...");
+    // Launch ROS2 nodes as background processes. Logs redirected to /tmp/*.log
     std::system("bash -c 'source ~/rod_ws/install/setup.bash && ros2 launch rod_cell cell.launch.py > /tmp/cell.log 2>&1' &");
     std::this_thread::sleep_for(std::chrono::seconds(15));
     std::system("bash -c 'source ~/rod_ws/install/setup.bash && ros2 launch arm_moveit move_group.launch.py > /tmp/arm_mg.log 2>&1' &");
@@ -547,6 +624,9 @@ static void ros_thread(int argc,char**argv) {
     std::system("bash -c 'source ~/rod_ws/install/setup.bash && ros2 launch scara_moveit move_group.launch.py > /tmp/scara_mg.log 2>&1' &");
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
+    // Load URDF/SRDF from share directories and substitute "$(find <pkg>)"
+    // placeholders with the real install-time paths (URDF was exported from
+    // SolidWorks and still contains these CMake-style references).
     set_status("Verbinde Arm...");
     auto arm_pkg  =ament_index_cpp::get_package_share_directory("arm_moveit");
     auto robot_pkg=ament_index_cpp::get_package_share_directory("robot_arm_6dof_assembly");
@@ -554,6 +634,8 @@ static void ros_thread(int argc,char**argv) {
                                  "$(find robot_arm_6dof_assembly)",robot_pkg);
     std::string srdf=read_file(arm_pkg+"/config/knickarm_6dof.srdf");
     rclcpp::NodeOptions oa; oa.automatically_declare_parameters_from_overrides(true);
+    // Remap joint_states to namespaced topic so arm and SCARA don't collide.
+    // use_sim_time=true required for synchronisation with Gazebo clock.
     oa.arguments({"--ros-args","-r","joint_states:=/arm/joint_states"});
     oa.parameter_overrides({rclcpp::Parameter("use_sim_time",true),
                              rclcpp::Parameter("robot_description",urdf),
@@ -586,6 +668,8 @@ static void ros_thread(int argc,char**argv) {
     exec.add_node(arm_node); exec.add_node(scara_node);
     g_ros_running=true; set_status("Bereit");
 
+    // Background thread: polls joint values every 200ms for live slider display.
+    // Separate from the executor thread to avoid blocking the ROS2 spin loop.
     std::thread([](){
         while(g_ros_running){
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -600,9 +684,10 @@ static void ros_thread(int argc,char**argv) {
     exec.spin(); rclcpp::shutdown();
 }
 
-// Kills all background processes started by the HMI.
-// Called both from the Quit button and from the end of main().
-// Two-phase: SIGTERM first, then SIGKILL for anything still alive.
+// Two-phase shutdown of all background ROS2/Gazebo processes:
+// Phase 1: SIGTERM + 800ms grace period
+// Phase 2: SIGKILL for anything still alive
+// Finally resets the ROS2 daemon so the next HMI start finds a clean state.
 static void full_shutdown()
 {
     // Phase 1 – polite SIGTERM
@@ -629,7 +714,12 @@ static void full_shutdown()
 
 
 // =============================================================================
+// THEME
+// =============================================================================
 
+// Industrial dark theme: near-black background, white text, amber accents.
+// All colours are set explicitly so the HMI looks consistent regardless of
+// the user's ImGui default style.
 static void apply_theme() {
     ImGuiStyle&s=ImGui::GetStyle();
     s.WindowRounding=0;s.ChildRounding=3;s.FrameRounding=2;s.GrabRounding=2;s.TabRounding=2;
@@ -681,12 +771,14 @@ static void apply_theme() {
 // GUI HELPERS
 // =============================================================================
 
+// Shared color constants for status/log coloring and UI accents
 static constexpr ImVec4 COL_AMBER={0.910f,0.627f,0.125f,1};
 static constexpr ImVec4 COL_GREEN={0.267f,0.784f,0.478f,1};
 static constexpr ImVec4 COL_RED  ={0.784f,0.310f,0.310f,1};
 static constexpr ImVec4 COL_DIM  ={0.490f,0.525f,0.588f,1};
 static constexpr ImVec4 COL_WARN ={0.941f,0.706f,0.200f,1};
 
+// Section header: amber left-border bar + dimmed label text
 static void sec(const char*label) {
     ImDrawList*dl=ImGui::GetWindowDrawList();
     ImVec2 p=ImGui::GetCursorScreenPos(); float lh=ImGui::GetTextLineHeight();
@@ -696,6 +788,7 @@ static void sec(const char*label) {
     ImGui::Spacing();
 }
 
+// Status LED: green = active/ready, red = not ready
 static void led(const char*label,bool on) {
     ImDrawList*dl=ImGui::GetWindowDrawList();
     ImVec2 p=ImGui::GetCursorScreenPos(); float lh=ImGui::GetTextLineHeight(),r=5.0f;
@@ -709,8 +802,11 @@ static void led(const char*label,bool on) {
 static bool jbtn(const char*lbl,float w=54.0f,float h=36.0f)
 { return ImGui::Button(lbl,{w,h}); }
 
-// Joint slider — returns {is_active, deactivated_after_edit} captured immediately
-// after SliderFloat, before the degree label (TextColored would pollute IsItemActive).
+// Joint slider helper. Returns IsItemActive and IsItemDeactivatedAfterEdit
+// captured IMMEDIATELY after SliderFloat — before any other ImGui item is
+// rendered. Adding a TextColored between SliderFloat and IsItemActive would
+// break the interaction because IsItemActive only returns true for the
+// last rendered item.
 struct SliderState { bool active; bool done; };
 
 static SliderState joint_slider(const char*id,float*val,float lo,float hi,float sw,bool linear=false)
@@ -738,9 +834,14 @@ static SliderState joint_slider(const char*id,float*val,float lo,float hi,float 
 // MAIN
 // =============================================================================
 
+// Entry point: starts the ROS thread (detached), opens the GLFW/ImGui window,
+// and runs the render loop until the window is closed or Quit is pressed.
 int main(int argc,char**argv) {
+    // ROS thread runs independently so the window opens immediately without
+    // waiting for Gazebo/MoveIt to finish starting up (~25s).
     std::thread(ros_thread,argc,argv).detach();
 
+    // GLFW + OpenGL 3.3 core profile window setup
     if(!glfwInit()) return -1;
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
@@ -749,12 +850,14 @@ int main(int argc,char**argv) {
     if(!win){glfwTerminate();return -1;}
     glfwMakeContextCurrent(win); glfwSwapInterval(1);
 
+    // ImGui context + backend init (GLFW + OpenGL3)
     IMGUI_CHECKVERSION(); ImGui::CreateContext();
     ImGui::StyleColorsDark(); apply_theme();
     ImGui_ImplGlfw_InitForOpenGL(win,true);
     ImGui_ImplOpenGL3_Init("#version 330");
     ImGui::GetIO().FontGlobalScale=1.1f;
 
+    // UI state: robot selector, jog step sizes, pose name input, csv path, action selector
     int   robot=0;
     float step_xy=0.05f,step_z=0.05f,rot_step=0.10f;
     char  pose_name[64]="Pose_1";
@@ -766,6 +869,9 @@ int main(int argc,char**argv) {
     int   prev_sel=-1;
     static size_t prev_log_sz=0;
 
+    // TCP display thread: polls current pose every 200ms for the header TCP readout.
+    // Separate from the joint polling thread in ros_thread() since it depends on
+    // the robot selector (arm vs. SCARA) which only exists in main scope.
     double tcp_x=0,tcp_y=0,tcp_z=0; std::mutex tcp_mx;
     std::thread([&](){
         while(!glfwWindowShouldClose(win)){
@@ -781,12 +887,14 @@ int main(int argc,char**argv) {
         }
     }).detach();
 
+    // Convenience lambdas: resolve active MoveGroup and robot name from selector
     auto mg    =[&](){return(robot==0)?g_arm_mg:g_scara_mg;};
     auto rname =[&]()->std::string{return(robot==0)?"arm":"scara";};
     const ImGuiWindowFlags NO_SCROLL=
         ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse;
 
-    // Helper: map combo index → Action
+    // Map between combo box index and Action enum.
+    // Actions differ per robot (arm: Pick/Place, SCARA: Screw/Unscrew).
     auto idx2act=[&](int i)->Action{
         if(robot==0){if(i==1)return Action::Pick;if(i==2)return Action::Place;if(i==3)return Action::SceneReset;}
         else        {if(i==1)return Action::Screw;if(i==2)return Action::Unscrew;if(i==3)return Action::SceneReset;}
@@ -798,7 +906,10 @@ int main(int argc,char**argv) {
         return 0;
     };
 
-    // =========================================================================
+    // ============================================================================
+    // RENDER LOOP — runs at display refresh rate (~60 fps)
+    // ============================================================================
+
     while(!glfwWindowShouldClose(win)){
         glfwPollEvents();
         ImGui_ImplOpenGL3_NewFrame(); ImGui_ImplGlfw_NewFrame(); ImGui::NewFrame();
@@ -1200,7 +1311,9 @@ int main(int argc,char**argv) {
         ImGui::EndChild(); ImGui::PopStyleColor();
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
-        // ── BOTTOM ROW: JOINTS + OBJECTS ─────────────────────────────
+        // Bottom section: live joint sliders (left) + object position table (right).
+        // Sliders show live values when not dragged; on release (IsItemDeactivatedAfterEdit)
+        // a joint-space move is sent to the robot.
         const float bot_h=(robot==0)?212.0f:156.0f;
         const float jnt_w=avail*0.575f, obj_w=avail-jnt_w-8.0f;
 
@@ -1265,7 +1378,8 @@ int main(int argc,char**argv) {
         ImGui::EndChild(); ImGui::PopStyleColor();
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
-        // ── LOG PANEL (full width) ────────────────────────────────────
+        // Log panel: color-coded (red=error, green=ok, dim=info), auto-scrolls to
+        // newest entry whenever a new line is appended.
         ImGui::PushStyleColor(ImGuiCol_ChildBg,{0.118f,0.126f,0.157f,1.0f});
         ImGui::BeginChild("##logpanel",{0,128},true);
         sec("LOG");
@@ -1301,6 +1415,8 @@ int main(int argc,char**argv) {
         glfwSwapBuffers(win);
     }
 
+    // Render loop exited (window closed or Quit pressed): shut down ImGui,
+    // GLFW and all background ROS2/Gazebo processes.
     g_picking=false; g_ros_running=false; g_seq_stop_req=true;
     ImGui_ImplOpenGL3_Shutdown(); ImGui_ImplGlfw_Shutdown(); ImGui::DestroyContext();
     glfwDestroyWindow(win); glfwTerminate();
